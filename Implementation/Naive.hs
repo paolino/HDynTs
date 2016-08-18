@@ -58,9 +58,10 @@ linkGrs l@(x,y) ms = let
 cutGrs :: Ord a => Edge a -> [Gr a] -> [Gr a]
 cutGrs (x,y) ms = let 
     ([mxy],ms') = partition (x `M.member`) ms
-    sx = S.delete y $ mxy M.! x
-    mxy' = M.adjust (S.delete x) y  mxy 
-    (mx,my) = M.partitionWithKey (\k _ -> k `S.member` sx) mxy'
+    mxy' = M.adjust (S.delete x) y mxy 
+    mxy'' = M.adjust (S.delete y) x mxy' 
+    sx = mxy M.! x
+    (mx,my) = M.partitionWithKey (\k _ -> k `S.member` sx || k == x) mxy''
     in mx:my:ms'
 
 
