@@ -47,17 +47,22 @@ connectedGr (x,y) m = connected' (S.singleton x) (S.singleton x) where
                     else connected' (s' `S.union` s''') (st `S.union` s''')
             Nothing -> False
 
+select :: (a -> Bool) -> [a] -> (a,[a])
+select f (x:xs) 
+    | f x = (x,xs)
+    | otherwise = second (x:) $ select f xs
+
 -- link implementation
 linkGrs :: Ord a => Edge a -> [Gr a] -> [Gr a]
 linkGrs l@(x,y) ms = let
-    ([mx],ms') = partition (x `M.member`) ms
-    ([my],ms'') = partition (y `M.member`) ms'
+    (mx,ms') = select (x `M.member`) ms
+    (my,ms'') = select (y `M.member`) ms'
     in addEdge l (M.union mx my) : ms''
 
 -- cut implementation
 cutGrs :: Ord a => Edge a -> [Gr a] -> [Gr a]
 cutGrs (x,y) ms = let 
-    ([mxy],ms') = partition (x `M.member`) ms
+    (mxy,ms') = select (x `M.member`) ms
     mxy' = M.adjust (S.delete x) y mxy 
     mxy'' = M.adjust (S.delete y) x mxy' 
     sx = mxy M.! x
