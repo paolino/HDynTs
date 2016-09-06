@@ -16,37 +16,34 @@ type P a = [a]
 
 type R = [Int]
 
-pick :: Int -> [a] -> (a -> [a] , a)
+pick :: Int -> [a] -> (Maybe a -> [a] , a)
 pick n xs = let 
     (bs,x:rs) = splitAt n xs
-    in ((\x -> bs ++ x:rs), x)
+    in ((\f -> bs ++ f rs) . maybe id (:), x)
  
-type B = ([(R,R)],R)
+type B = ((R,[R]),R)
 
-
-
-prefixSubst :: ([(R,R)],[(R,R)]) -> R -> R
+prefixSubst :: [(Int,R)] -> (R,[R]) -> R -> R
 prefixSubst = undefined
 
 reRoot :: T a -> R -> (T a, R -> R)
 reRoot (T x ts) (p:ps) =
-    let     (bs,y:rs) = splitAt p $ ts
-            t' = T x (bs ++ rs)
+    let     (T x . ($ Nothing) -> t',y) = pick p ts
             (t'',(cs,acc))  = reRootInside t' y ps [p]
-            ms = (if (p == 0) then [] else (map (\n -> ([n],reverse $ n:acc)) [0..p-1])) 
-                ++ map (\n -> ([n],reverse $ (n - 1) :acc)) [p+1..length ts-1]
+            mbs =  map (id &&&  reverse . (: acc) . g) $ delete p [0 .. length ts - 1]
+            g n | n < p = n
+                | otherwise = n - 1
             correct [] = reverse acc
-            correct xs = prefixSubst (ms,cs) xs
+            correct xs = prefixSubst mbs cs xs
     in (t'', correct)
 
 
 reRootInside :: T a -> T a -> R -> R -> (T a, B)
-reRootInside t' (T x ts) [] rp = (T x $ ts ++ [t'], ([(reverse rp,[])], [length ts]))
-reRootInside t' (T x ts) (p:ps) rp = let 
-    (r, c) = pick p ts
-    t'' = T x $ r t'
-    h (cs,acc) = ((reverse rp, reverse acc) : cs , p:acc) 
-    second h $ reRootInside t'' c ps (p:rs)
+reRootInside t' (T x ts) [] rs = (T x $ ts ++ [t'], ((reverse rs,[[]]), [length ts]))
+reRootInside t' (T x ts) (p:ps) rs = let 
+    (T x . ($ Just t') -> t'', c) = pick p ts
+    h ((rps, cs),acc) = ((rps , reverse acc : cs) , p:acc) 
+    in second h $ reRootInside t'' c ps (p:rs)
 
 {-
 cut :: T a -> R -> (T a ,T a)
