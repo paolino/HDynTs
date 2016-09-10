@@ -25,10 +25,5 @@ link (FTree st sv stv sp) v1 v2 = let
 
 link x y
 
-paths :: T a -> [P a]
-paths (T x []) = [[x]]
-paths (T x xs) = (x:p):ps where
-    p:ps = sortBy (comparing length) $ xs >>= paths 
-
 -}
     
