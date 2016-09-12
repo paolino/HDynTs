@@ -19,3 +19,6 @@ testMonadic = do
     update' r "juan"
     return $ r == "juan"
 
+query (new dbS "paolino") (IString 0) == "paolino"
+query (new (new dbS "paolino") "juan") (IString 1) == "juan"
+query (new (new dbS "paolino") "juan") (IString 1) == "juan"
