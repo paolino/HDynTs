@@ -32,6 +32,21 @@ data Db a = Db {
 newtype Index a = Index {index :: Int} deriving (Enum, Eq, Ord, Num, Show)
 
 type family IndexF a 
+---------------------------- Monadic Single interface -------------
+type DbSingle m a b = StateT (Db a) m b
+
+newS :: Monad m => a -> DbSingle m a (IndexF a)
+newS x = do
+    (db,k) <- flip new x <$> get
+    put db
+    return k
+
+updateS :: Monad m => IndexF a -> a -> DbSingle m a ()
+updateS k x = modify (\db -> update db k x)
+
+queryS :: Monad m => IndexF a -> DbSingle m a a
+queryS k = gets $ flip query k 
+--------------------------------------------------------------------------
 
 type instance IndexF (Path a) = Index (Path a)
 type instance IndexF (Range a) = Index (Range a)
