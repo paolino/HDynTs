@@ -1,18 +1,23 @@
-{-# language MultiParamTypeClasses, TemplateHaskell #-}
+{-# language MultiParamTypeClasses, TemplateHaskell, ViewPatterns, FlexibleInstances #-}
 import qualified Data.FingerTree as F
-import  Data.FingerTree (FingerTree, split, measure, Measured)
+import  Data.FingerTree (FingerTree, split, measure, Measured, viewl, (<|) , (|>), ViewL ((:<)))
 import qualified Data.Set as S
-import qualified Data.IntMap as M
 import Data.IntMap (IntMap)
 import Data.Set (Set)
 import Data.List
 import Control.Arrow ((&&&), (***), second)
 import Data.Maybe (isNothing, fromJust )
-import Control.Lens
+import Control.Lens hiding ((:<),(<|),(|>))
 import Control.Lens.TH
+import Data.Ord
+import Data.Tree
+import Data.Monoid
+import Data.Foldable
 
 deleteAt :: Int -> [a] -> [a]
 deleteAt n xs = let (bs,_:rs) = splitAt n xs in bs ++ rs
+
+
 
 newtype Collect a = Collect a deriving Show
 
@@ -26,82 +31,47 @@ type Index = Int
 data Path a = Path {
     _father :: Maybe a,
     _orig :: FT a,
-    _rev :: FT a, 
-    _versus :: Bool
-    }
-
-composePathsA :: Path a -> Path a -> Maybe (Paths a ,Paths a)
-composePathsA  (Path mf1@(Just x) o1 r1 True) (Path mf2 o2 r2 True) = let 
-    (ao,bo) = split (S.member x) o2
-    (ar,br) = split (S.member x) r2
-    in case af of 
-        [] -> No:w
-        thing
-        _ -> Just (Path mf2 (o1 <> af) (bf' <> r1) True, Path mf1 bf (b :< af'))
-composePathsA (Path mf1@(Just x) o1 r1 True) (Path mf2 o2 r2 False) = let 
-    (bf ,b <: af) = split (S.member x) o2
-    (bf',af') = split (S.member x) r2
-    in case af of 
-        [] -> Nothing
-        _ -> Just (Path mf2 (o1 <> af') (bf :> b <> r1) True, Path mf1 af (b :< af'))
-    
-
-
-splitB True f t = split f t
-splitB False f t = let 
-    (bf :> w ,af) = split f t
-    in (bf, w :< af)
-
-
+    _rev :: FT a 
+    } deriving Show
 makeLenses ''Path
 
-type Forest a = IntMap (Path a)
 
-select :: Forest a -> Index -> (Path a, Path a -> Forest a)
-select fs i = (fs M.! i, \x -> M.Insert i x fs)
+paths :: Ord a => Tree a -> [Path a]
+paths = paths' Nothing where
+    paths' m (Node x []) = [Path m ft ft] where ft = F.singleton $ Collect x
+    paths' m (Node x xs) = let Path _ o r : ps = sortBy (comparing (length . view orig)) $ zip (undefined : repeat (Just x)) xs >>= uncurry paths' in 
+        Path m (Collect x <| o) (r |>  Collect x) : ps
 
-splitB True f t = split f t
-splitB False f t = let 
-    (bf :> w ,af) = split f t
-    in (bf, w :< af)
+data Split a = NotFound | Take (Path a) | Splitted (Path a) (Path a) deriving Show
 
+failure NotFound = True
+failure _ = False
 
--- search for presence
-cut     :: Ord a 
-        => a 
-        -> Bool
-        -> Forest a 
-        -> (Forest a, (FT a, FT a))
-cut x fs = let 
-    (i, (p, (bf,af))) = fromJust . find (not . null . snd . snd . snd) . map (second (id &&& split (S.member x) . view path))) . M.assocs
-    (bf' :> t,af') = split (S.member x) $ view reversePath p
-    in (M.insert i (Path (Just x) bf (t :< af') $ view versus p) fs, (af,bf')) 
+splitPath :: Ord a => a -> Path a -> Split a
+splitPath  x p@(Path mf o r) = let 
+    (ao,bo) = split (S.member x) o
+    (ar, viewl -> w :< br) = split (S.member x) r
+    in  if null bo then NotFound
+        else if null ao then Take p
+        else Splitted (Path (Just x) ao br) (Path mf bo $ ar |> w )
 
+joinAndReversePaths xs = Path mf r o where
+    Path mf o r = foldr1 (\(Path _ o r) (Path mf o' r') ->  Path mf (o <> o') (r' <> r)) xs
+
+newtype Elem a = Elem {fromElem  :: a}
+instance Measured  (Sum Int) (Elem a) where
+    measure _ = Sum 1
+
+type Paths a = FingerTree (Sum Int) (Elem (Path a))
+
+exposeStep :: Paths a -> a -> (Paths a, Path a)
+exposeStep ps x = let
+    ([Elem t], rs) = partition (not . failure . splitPath x . fromElem) $ toList ps
+    in case t of
+        Take p -> (ps,p)
+        Splitted r p -> (ps |> Elem r ,p)
 
     
-{-
-search :: Ord a => Collect a -> Forest a -> (Index, (Path a, (FT a,Ft a)))
-search x fs = let 
-    z@(i,(p,cuts)) = fromJust $ find (\(_,(_ , (_,r))) -> not . null $ r) $ zip [0..] $ searchC x fs
-    in 
-
-
-
-cutStep :: Ord a => Collect a -> Forest a -> (Forest a, Path a)
-cutStep x fs = let
-    Just (n,(Path father _, (stay,leave))) = find (not . null . snd . snd . snd) $ zip [0..] $ cutter x fs
-    in (Path (Just x) stay : deleteAt n fs, Path father leave)
-
-driver a@(_, p@(Path Nothing _)) = a
-driver (fs,Path (Just x) _) = cutStep x fs 
-
-oneMore :: (a -> Bool) -> [a] -> [a]
-oneMore c (x:xs) | c x = [x]
-                 | otherwise = x:oneMore c xs
-
-expose :: Ord a => Collect a -> Forest a -> Forest a
-expose x = (\(fs,x) -> x : fs) . (last *** Path Nothing . F.reverse . mconcat . map (view path)) . unzip . oneMore (isNothing .  view father . snd) . iterate driver . cutStep x 
--}
-
+    
 
 
