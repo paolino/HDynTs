@@ -1,6 +1,8 @@
-{-# language MultiParamTypeClasses, TemplateHaskell, ViewPatterns, FlexibleInstances #-}
+{-# language MultiParamTypeClasses, TemplateHaskell, 
+    ViewPatterns, FlexibleInstances,DeriveFunctor, StandaloneDeriving #-}
 import qualified Data.FingerTree as F
-import  Data.FingerTree (FingerTree, split, measure, Measured, viewl, (<|) , (|>), ViewL ((:<)))
+import  Data.FingerTree (FingerTree, split, measure, Measured, viewl, 
+    (<|) , (|>), ViewL ((:<)))
 import qualified Data.Set as S
 import Data.IntMap (IntMap)
 import Data.Set (Set)
@@ -21,58 +23,77 @@ instance Ord a => Measured (Set a) (Collect a) where
 
 type FT a = FingerTree (Set a) (Collect a)
 
-data DoublePath a = DoublePath {
+data RPath a = RPath {
     _orig :: FT a,
     _rev :: FT a 
     } deriving Show
+makeLenses ''RPath
 
-instance Monoid (DoublePath a) where
-    DoublePath o r <> DoublePath o' r' = DoublePath (o <> o') (r' <> r)
+instance Ord a => Monoid (RPath a) where
+    RPath o r `mappend` RPath o' r' = RPath (o `mappend` o') (r' `mappend` r)
+    mempty = RPath mempty mempty
 
-data Split b a = NotFound | Take (b a) | Splitted (b a) (b a) deriving Show
+data Split a = NotFound | Take  a | Splitted a a
+    deriving (Show, Functor)
+
 
 data Cut = LC | RC 
 
-splitDoublePath :: Ord a => Cut -> a -> DoublePath a -> Split DoublePath a
-splitDoublePath  LC x p@(DoublePath o r) = let 
+splitRPath :: Ord a => Cut -> a -> RPath a -> Split (RPath a)
+splitRPath  LC x p@(RPath o r) = let 
     (ao,bo) = split (S.member x) o
     (ar, viewl -> w :< br) = split (S.member x) r
     in  if null bo then NotFound
         else if null ao then Take p
-        else Splitted (DoublePath ao br) (DoublePath bo $ ar |> w )
- 
-swapDoublePath (DoublePath o r) = DoublePath r o
------------------------------------------------------------------------
+        else Splitted (RPath ao br) (RPath bo $ ar |> w )
+splitRPath RC x p = swapRPath <$>  splitRPath LC x (swapRPath p)
+{- 
+splitRPath  RC x p@(RPath o r) = let 
+    (ao,viewl -> w :< bo) = split (S.member x) o
+    (ar, br) = split (S.member x) r
+    in  if null br then NotFound
+        else if null ar then Take p
+        else Splitted (RPath (ao |> w)  br) (RPath bo ar )
+-}
+swapRPath :: RPath a -> RPath a
+swapRPath (RPath o r) = RPath r o
 
+tailRPath (RPath (viewl -> w :< _) o) = w
+-----------------------------------------------------------------------
 
 data Path a = Path {
     _father :: Maybe a,
-    _path :: DoublePath a
+    _path :: RPath a
     } deriving Show
 
 makeLenses ''Path
 
 paths :: Ord a => Tree a -> [Path a]
 paths = paths' Nothing where
-    paths' m (Node x []) = [Path m ft ft] where ft = F.singleton $ Collect x
-    paths' m (Node x xs) = let Path _ o r : ps = sortBy (comparing (length . view orig)) $ zip (undefined : repeat (Just x)) xs >>= uncurry paths' in 
-        Path m (Collect x <| o) (r |>  Collect x) : ps
+    paths' m (Node x []) = [Path m (RPath ft ft)] where 
+                     ft = F.singleton $ Collect x
+    paths' m (Node x xs) = let 
+        Path _ (RPath o r) : ps = 
+            sortBy (comparing (length . view (path . orig))) $ 
+                zip (repeat $ Just x) xs >>= uncurry paths' 
+        in 
+        Path m (RPath (o |> Collect x) (Collect x <| r)) : ps
 
 
-splitPath :: Ord a => Cut -> a -> Path a -> Split Path a
-splitPath c  x p@(Path mf dp) = let 
-    res = splitDoublePath c x dp
-    case res of
-        Splitted p1 p2 -> Splitted (Path (Just x) p1) (Path mf p2)
+splitPath :: Ord a => Cut -> a -> Path a -> Split (Path a)
+splitPath c  x p@(Path mf dp) = case splitRPath c x dp of
+        Splitted p1 p2@(viewl. view (path . orig) -> w :< _) -> 
+            Splitted (Path (Just w) p1) (Path mf p2)
         Take p -> Take (Path mf p)
         NotFound -> NotFound
 
-joinAndReversePaths :: [Path a] -> Path a
-joinAndReversePaths xs = Path mf $ swapDoublePath $ foldr1 (\(Path _ dp) (Path mf dp') ->  Path mf $ dp <> dp') xs
+joinAndReversePaths :: Ord a => [Path a] -> Path a
+joinAndReversePaths xs = over path (swapRPath) $ 
+    foldr1 (\(Path _ dp) (Path mf dp') ->  Path mf $ dp <> dp') xs
 
-tailDoublePath (DoublePath o (r :> w)) = w
 ---------------------------------------------------------------------
 
+{-
 
 type Forest  a = [Path a]
 
@@ -122,4 +143,4 @@ cut x f = case takePath RC x f of
         (Right (Result (Path _ dp) p),f') -> let 
             (p',f'') = mergeCorrection p f'
             in Path Nothing dp : p' : f''
-    
+   -} 
