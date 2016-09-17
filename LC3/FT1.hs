@@ -172,12 +172,12 @@ mergeOrInsert p f = maybe (p:f) id $ mergeCorrection p f
 
 -- result of a successful split
 data Result a = Result {
-    residual :: Path a,
+    residual :: Maybe (Path a),
     taken :: Path a
     }
 
 
-unzipResults :: [Result a] -> ([Path a], [Path a])
+unzipResults :: [Result a] -> ([Maybe (Path a)], [Path a])
 unzipResults = unzip . map (\(Result r t)  -> (r,t))
 
 -- extract a splitted path from the forest given the splitting vertex
@@ -190,28 +190,48 @@ selectPath x f = let
 -- core expose function, cut and take the dependency of the right cutted piece
 -- and cut again, collecting results
 type ExposeCore a = (Maybe a , Forest Path a)
-exposeCore      :: Ord a 
+exposeCore      :: (Ord a, Show a)
                 => ExposeCore a -- actual results and
                 -> Either (ExposeCore a) (Result a, ExposeCore a) 
+
 exposeCore (Nothing,f) = Left (Nothing,f)
 exposeCore (Just x, f) = case selectPath x f of
-            (Splitted r l,f') -> Right (Result r l,(view father l,f'))
-            _ -> error "invariant broken"
+            (Splitted r l,f') -> Right (Result (Just r) l,(view father l,f'))
+            (Take p,f') -> Right (Result Nothing p,(view father p,f'))
 
-exposeIterate :: Ord a => Maybe a -> Forest Path a -> 
+exposeIterate :: (Ord a, Show a) => Maybe a -> Forest Path a -> 
     ([Result a], Forest Path a)
 exposeIterate mf f = second snd $ unfoldrE exposeCore (mf,f)
 
-expose :: Ord a => a -> (Path a -> Path a) -> Forest Path a -> Forest Path a
+fromJustE (Just x) = x
+fromJustE Nothing = error "invariant broken"
+
+acceptOneNothing (Nothing : xs) = map fromJustE xs
+acceptOneNothing (Just x:xs) = x: map fromJustE xs
+acceptOneNothing [] = error "cutting the void!"
+
+expose :: (Ord a, Show a) => a -> (Path a -> Path a) -> Forest Path a -> Forest Path a
 expose x c f = let
-    (unzipResults -> (rs,ts),f') = exposeIterate (Just x) f
-    in rs ++ mergeOrInsert (c $ joinAndReversePaths ts) f' 
+    (unzipResults -> (acceptOneNothing -> rs,ts),f') = exposeIterate (Just x) f
+    in mergeOrInsert (c $ joinAndReversePaths ts) $ rs ++ f' 
     
-link :: Ord a => a -> a -> Forest Path a -> Forest Path a
+link :: (Show a,Ord a) => a -> a -> Forest Path a -> Forest Path a
 link x y f = let
     (unsplitPath -> s, f') = selectPath x f -- future father
     in mergeOrInsert s $ expose y (set father $ Just x) f' 
-    
+   
+
+drawPath :: Show a => Path a -> String
+drawPath (Path Nothing (IsoPath o _)) = show (map unCollect . toList $ o) ++ " -> " ++ "ROOT" 
+drawPath (Path (Just d) (IsoPath o _)) = show (map unCollect . toList $ o) ++ " -> " ++ show d 
+
+pt :: (Ord a, Show a) => Forest Path a -> IO ()
+pt x = do
+    mapM_ (putStrLn. drawTree . fmap show) . pathsToTrees $ x
+    mapM_ (putStrLn . drawPath) $ x
+
+f = treesToPaths [Node 1 [Node 2 [], Node 3 []], 
+    Node 4 [Node 5[Node 7 []], Node 6[]]]
 {-
 cut :: a -> Forest a -> Maybe (Forest a)
 cut x f = case takePath RC x f of
@@ -234,3 +254,6 @@ fromForest f =
     in map (fromJust <$>) rs
 
    -} 
+
+
+
