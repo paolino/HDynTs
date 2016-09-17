@@ -216,7 +216,7 @@ expose x c f = let
     in mergeOrInsert (c $ joinAndReversePaths ts) $ rs ++ f' 
     
 link :: (Show a,Ord a) => a -> a -> Forest Path a -> Forest Path a
-link x y f = let
+link y x f = let
     (unsplitPath -> s, f') = selectPath x f -- future father
     in mergeOrInsert s $ expose y (set father $ Just x) f' 
    
