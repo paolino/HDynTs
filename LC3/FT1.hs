@@ -243,6 +243,8 @@ mergeOrInsert :: Ord a => Path a -> Forest Path a -> Forest Path a
 mergeOrInsert p f = maybe (p:f) id $ mergeCorrection p f
 
 
+
+
 --------------------------------------------------------------------------------
 --------Linking-----------------------------------------------------------------
 -- linking two vertex or creating an edge---------------------------------------
