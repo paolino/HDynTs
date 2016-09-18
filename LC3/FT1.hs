@@ -1,6 +1,9 @@
 {-# language MultiParamTypeClasses, TemplateHaskell, ScopedTypeVariables, 
     ViewPatterns, FlexibleInstances,DeriveFunctor, StandaloneDeriving, 
-    NoMonomorphismRestriction #-}
+    NoMonomorphismRestriction, FlexibleContexts #-}
+
+module FT1 where
+
 import qualified Data.FingerTree as F
 import  Data.FingerTree (FingerTree, split, measure, Measured, viewl,viewr,  
     (<|) , (|>), ViewL ((:<)), ViewR ((:>)))
@@ -17,6 +20,7 @@ import Data.Tree hiding (Forest)
 import Data.Monoid
 import Data.Maybe
 import Data.Foldable
+import Control.Monad.State
 
 --------------------------------------------------------------------------------
 ----------------Library --------------------------------------------------------
@@ -34,6 +38,12 @@ unfoldrE :: (b -> Either b (a,b)) -> b -> ([a],b)
 unfoldrE f x = case f x of
     Left y -> ([],y)
     Right (z,y) -> first (z:) $ unfoldrE f y
+
+label = lens rootLabel (\(Node x xs) y -> Node y xs)
+subs = lens subForest (\(Node x _) ys -> Node x ys)
+
+sortChildren :: Ord a => Tree a -> Tree a
+sortChildren  = over subs $ sortBy (comparing rootLabel)  . map sortChildren 
 
 --------------------------------------------------------------------------------
 ---------------------Sets as a measure for fingertrees--------------------------
@@ -63,7 +73,7 @@ instance Ord a => Monoid (IsoPath a) where
         IsoPath (o `mappend` o') (r' `mappend` r)
     mempty = IsoPath mempty mempty
 
-------results of splitting an IsoPath ------------------------------------------
+-- | Splitting effect
 data Split a = Take a | Splitted a a
     deriving (Show, Functor)
 
@@ -80,7 +90,11 @@ swapIsoPath (IsoPath o r) = IsoPath r o
 
 tailIsoPath :: Ord a => IsoPath a -> Collect a
 tailIsoPath (IsoPath (viewl -> w :< _) _) = w
------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--------A path is an IsoPath with a potential depedency-------------------------
+--------the last element of a path with no dependency is actual root------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 data Path a = Path {
     _father :: Maybe a,
@@ -91,7 +105,12 @@ makeLenses ''Path
 
 type Forest b a = [b a]
 
--- | convert a st of trees to a forest of paths
+--------------------------------------------------------------------------------
+---------Deconstruction---------------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- | convert a forest of trees to a forest of paths
 treesToPaths   :: Ord a 
             => Forest Tree a -- ^ tree to deconstruct
             -> Forest Path a -- ^ deconstruction
@@ -105,10 +124,19 @@ treesToPaths = concatMap (paths' Nothing) where
         in 
         Path m (IsoPath (o |> Collect x) (Collect x <| r)) : ps
 
+--------------------------------------------------------------------------------
+----------Reconstruction -------------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- path head consumer, fail on empty path
 consume (Path _ (IsoPath (viewr -> o :> Collect h ) (viewl -> _ :< r))) = 
     Just (h,Path (Just h) (IsoPath o r))
 consume _ = Nothing
+
+--------------------------------------------------------------------------------
+--------------Pure reconstruction ----------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 -- collect a subforest of trees , children of a node
 children    ::  Ord a 
@@ -132,12 +160,39 @@ maybeNode f c = case consume c of
         in second (Just . Node (Just h)) $ case mc of 
             Nothing -> (f',[])
             Just n -> second (n:) $ children (Just h) f'
-        
+
 -- | convert a forest of paths back to forest of trees format
-pathsToTrees  :: Ord a 
-            => Forest Path a    -- ^ paths to reconstruct
-            ->  Forest Tree a   -- ^ reconstruction
+pathsToTrees    
+                :: Ord a 
+                =>  Forest Path a    -- ^ paths to reconstruct
+                ->  Forest Tree a   -- ^ reconstruction
 pathsToTrees = map (fromJust <$>) . snd . children Nothing 
+--------------------------------------------------------------------------------
+--------Monadic reconstruction -------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+maybeNodeM  :: (Monad m, Ord a)
+            => Path a 
+            -> StateT (Forest Path a) m (Maybe (Tree (Maybe a)))
+maybeNodeM (consume -> Just (h,c)) = fmap (Just . Node (Just h)) $
+        maybeNodeM c >>= \mc -> case mc of 
+            Nothing -> return []
+            Just n -> (n:) <$> childrenM (Just h)
+maybeNodeM _ = return Nothing
+
+childrenM   :: (Monad m, Ord a)
+            => Maybe a 
+            -> StateT (Forest Path a) m (Forest Tree (Maybe a))
+childrenM mf = fmap catMaybes  $ 
+        StateT (return . partition ((/=) mf . view father)) 
+        >>= mapM maybeNodeM
+
+pathsToTreesM :: (Monad m, Ord a) 
+        => (Forest Path a) 
+        -> m (Forest Tree a) 
+pathsToTreesM = fmap (map (fromJust <$>)) . evalStateT (childrenM Nothing)  
+
 
 ----------------------------------------------------------------
 
@@ -181,25 +236,29 @@ unzipResults :: [Result a] -> ([Maybe (Path a)], [Path a])
 unzipResults = unzip . map (\(Result r t)  -> (r,t))
 
 -- extract a splitted path from the forest given the splitting vertex
-selectPath :: Ord a => a -> Forest Path a -> (Split (Path a), Forest Path a)
+selectPath :: Ord a => a -> Forest Path a 
+    -> Maybe (Split (Path a), Forest Path a)
 selectPath x f = let
-    ([(_,Just s)], unzip -> (f',_)) = partition (isJust . snd) $ 
+    (rs, unzip -> (f',_)) = partition (isJust . snd) $ 
         zip <*> map (splitPath x) $ f
-    in (s,f')
+    in case rs of
+        [(_,Just s)] -> Just $ (s,f')
+        _ -> Nothing 
 
 -- core expose function, cut and take the dependency of the right cutted piece
 -- and cut again, collecting results
 type ExposeCore a = (Maybe a , Forest Path a)
-exposeCore      :: (Ord a, Show a)
+exposeCore      :: (Ord a)
                 => ExposeCore a -- actual results and
                 -> Either (ExposeCore a) (Result a, ExposeCore a) 
 
 exposeCore (Nothing,f) = Left (Nothing,f)
 exposeCore (Just x, f) = case selectPath x f of
-            (Splitted r l,f') -> Right (Result (Just r) l,(view father l,f'))
-            (Take p,f') -> Right (Result Nothing p,(view father p,f'))
+            (Just (Splitted r l,f')) -> Right (Result (Just r) l,(view father l,f'))
+            (Just (Take p,f')) -> Right (Result Nothing p,(view father p,f'))
+            Nothing -> error "vertex not found"
 
-exposeIterate :: (Ord a, Show a) => Maybe a -> Forest Path a -> 
+exposeIterate :: (Ord a) => Maybe a -> Forest Path a -> 
     ([Result a], Forest Path a)
 exposeIterate mf f = second snd $ unfoldrE exposeCore (mf,f)
 
@@ -210,28 +269,44 @@ acceptOneNothing (Nothing : xs) = map fromJustE xs
 acceptOneNothing (Just x:xs) = x: map fromJustE xs
 acceptOneNothing [] = error "cutting the void!"
 
-expose :: (Ord a, Show a) => a -> (Path a -> Path a) -> Forest Path a -> Forest Path a
-expose x c f = let
+exposeInternal :: (Ord a) => a -> (Path a -> Path a) 
+    -> Forest Path a -> Forest Path a
+exposeInternal x c f = let
     (unzipResults -> (acceptOneNothing -> rs,ts),f') = exposeIterate (Just x) f
     in mergeOrInsert (c $ joinAndReversePaths ts) $ rs ++ f' 
-    
-link :: (Show a,Ord a) => a -> a -> Forest Path a -> Forest Path a
-link y x f = let
-    (unsplitPath -> s, f') = selectPath x f -- future father
-    in mergeOrInsert s $ expose y (set father $ Just x) f' 
-   
 
-drawPath :: Show a => Path a -> String
-drawPath (Path Nothing (IsoPath o _)) = show (map unCollect . toList $ o) ++ " -> " ++ "ROOT" 
-drawPath (Path (Just d) (IsoPath o _)) = show (map unCollect . toList $ o) ++ " -> " ++ show d 
+--------------------------------------------------------------------------------
+-------------- Interface --------------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
-pt :: (Ord a, Show a) => Forest Path a -> IO ()
-pt x = do
-    mapM_ (putStrLn. drawTree . fmap show) . pathsToTrees $ x
-    mapM_ (putStrLn . drawPath) $ x
+-- | bring the element to be the root of its tree
+expose  :: (Ord a) 
+        => a 
+        -> Forest Path a 
+        -> Forest Path a
+expose x = exposeInternal x id
 
-f = treesToPaths [Node 1 [Node 2 [], Node 3 []], 
-    Node 4 [Node 5[Node 7 []], Node 6[]]]
+-- | find the root of a node
+root :: Ord a => a -> Forest Path a -> Maybe a
+root x = fmap unCollect . r x where
+    r x f = case selectPath x f of
+        Nothing -> Nothing 
+        Just (unsplitPath -> Path mf (viewl . view orig -> x' :< _),f') -> 
+            maybe (Just x') (flip r f') mf
+-- | check 2 vertexes to be on the same tree
+connected :: Ord a =>  a -> a -> Forest Path a -> Bool
+connected x y = (==) <$> root x <*> root y
+
+-- | create a new link
+link :: (Show a,Ord a) => a -> a -> Forest Path a -> Maybe (Forest Path a)
+link y x f = 
+    let g (unsplitPath -> s, f') = mergeOrInsert s $ 
+                        exposeInternal y (set father $ Just x) f' 
+    in g <$> selectPath x f 
+
+
 {-
 cut :: a -> Forest a -> Maybe (Forest a)
 cut x f = case takePath RC x f of
@@ -239,21 +314,7 @@ cut x f = case takePath RC x f of
         (Right (Result (Path _ dp) p),f') -> let 
             (p',f'') = mergeCorrection p f'
             in Path Nothing dp : p' : f''
--- O (n^2)
-fromForest :: Ord a => Forest a -> [Tree a]
-fromForest f = 
-    let     ([], Node Nothing rs) = fromForest' Nothing f
-            fromForest' mf f = let
-                (cs,f') = collectChildren mf f
-                (f'',ns) = mapAccumL (\f c -> fromForest' (Just c) f) f' cs
-                in (f'', Node mf ns)
-            collectChildren ma f = let
-                (unzip . catMaybes . map consume -> (cs,ps),f') = 
-                    partition ((==) ma . view father) f
-                in (cs,ps ++ f')
-    in map (fromJust <$>) rs
-
-   -} 
+-} 
 
 
 
