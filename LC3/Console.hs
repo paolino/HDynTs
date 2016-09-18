@@ -1,6 +1,7 @@
 {-# language MultiParamTypeClasses, TemplateHaskell, ScopedTypeVariables, 
     ViewPatterns, FlexibleInstances,DeriveFunctor, StandaloneDeriving, 
     NoMonomorphismRestriction, FlexibleContexts #-}
+module Console where
 import Data.List
 import Data.Tree hiding (Forest)
 import Control.Monad.State
@@ -23,8 +24,8 @@ drawPath (Path (Just d) (IsoPath o _)) = show (map unCollect . toList $ o)
     ++ " -> " ++ show d 
 
 pt :: (Ord a, Show a) => Forest Path a ->  IO ()
-pt f = do
-    mapM_ (putStrLn. drawTree . fmap show . sortChildren) . 
+pt (sort -> f) = do
+    mapM_ (putStrLn. drawTree . fmap show) . 
         pathsToTrees $ f
     mapM_ (putStrLn . drawPath) $ f
 

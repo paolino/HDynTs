@@ -54,7 +54,7 @@ sortChildren  = over subs $ sortBy (comparing rootLabel)  . map sortChildren
 ------------------------check monotonicity -------------------------------------
 --------------------------------------------------------------------------------
 
-newtype Collect a = Collect {unCollect :: a} deriving Show
+newtype Collect a = Collect {unCollect :: a} deriving (Eq,Ord,Show)
 
 instance Ord a => Measured (Set a) (Collect a) where
     measure (Collect x) = S.singleton x
@@ -70,7 +70,7 @@ type FT a = FingerTree (Set a) (Collect a)
 data IsoPath a = IsoPath {
     _orig :: FT a,
     _rev :: FT a 
-    } deriving Show
+    } deriving (Show,Eq,Ord)
 makeLenses ''IsoPath
 
 
@@ -122,7 +122,7 @@ tailIsoPath (IsoPath (viewl -> w :< _) _) = w
 data Path a = Path {
     _father :: Maybe a,
     _path :: IsoPath a
-    } deriving Show
+    } deriving  (Show,Eq,Ord)
 
 makeLenses ''Path
 
@@ -137,15 +137,16 @@ type Forest b a = [b a]
 treesToPaths   :: Ord a 
             => Forest Tree a -- ^ tree to deconstruct
             -> Forest Path a -- ^ deconstruction
-treesToPaths = concatMap (paths' Nothing) where
-    paths' m (Node x []) = [Path m (IsoPath ft ft)] where 
+treesToPaths = concatMap paths'  where
+    paths' (Node x []) = [Path Nothing (IsoPath ft ft)] where 
                      ft = F.singleton $ Collect x
-    paths' m (Node x xs) = let 
-        Path _ (IsoPath o r) : ps = 
-            sortBy (comparing (length . view (path . orig))) $ 
-                zip (repeat $ Just x) xs >>= uncurry paths' 
+    paths' (Node x xs) = let 
+        Path h (IsoPath o r) : ps = 
+            xs >>= paths' 
+        f (Path Nothing i) = Path (Just x) i
+        f x = x
         in 
-        Path m (IsoPath (o |> Collect x) (Collect x <| r)) : ps
+        Path h (IsoPath (o |> Collect x) (Collect x <| r)) : map f ps
 
 --------------------------------------------------------------------------------
 ----------Reconstruction -------------------------------------------------------
@@ -333,12 +334,18 @@ link y x f =
                         rerootInternal y (set father $ Just x) f' 
     in g <$> selectPath splitIsoPath x f 
 
-
-
+-- | cut a node from its parents
 cut :: Ord a => a -> Forest Path a -> Maybe (Forest Path a)
 cut x f = g <$>  selectPath cutSplitIsoPath x f where
     g (Splitted p1 p2, f) = set father Nothing p1 : mergeOrInsert p2 f
     g (Take p, f) = set father Nothing p : f
 
+-------- stuff
 
+rerooter :: Ord a => Forest Path a -> Forest Path a -> Forest Path a
+rerooter t t'  = foldr reroot t' .  map (unCollect . (\(viewl -> x :< _) -> x). view (path.rev)) . filter (isNothing . view father) $ t
 
+-- | Forest Path equality up to sorting and rerooting
+newtype TreeEq a = TreeEq (Forest Path a)
+instance Ord a => Eq (TreeEq a) where
+    TreeEq t1 == TreeEq t2 = sort (rerooter t1 t2) == sort t1
