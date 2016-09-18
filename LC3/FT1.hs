@@ -6,7 +6,7 @@ module FT1 where
 
 import qualified Data.FingerTree as F
 import  Data.FingerTree (FingerTree, split, measure, Measured, viewl,viewr,  
-    (<|) , (|>), ViewL ((:<)), ViewR ((:>)))
+    (<|) , (|>), ViewL ((:<),EmptyL), ViewR ((:>)), )
 import qualified Data.Set as S
 import Data.IntMap (IntMap)
 import Data.Set (Set)
@@ -45,9 +45,13 @@ label = lens rootLabel (\(Node x xs) y -> Node y xs)
 -- | Node lenses (Data.Tree)
 subs = lens subForest (\(Node x _) ys -> Node x ys)
 
--- | Sort the children of a rosetree by label (Data.Tree)
-sortChildren :: Ord a => Tree a -> Tree a
-sortChildren  = over subs $ sortBy (comparing rootLabel)  . map sortChildren 
+-- | extract an elem from FT
+selectFT :: Measured m a => (m -> Bool) -> FingerTree m a -> Maybe (a, FingerTree m a)
+selectFT c f = let
+    (bs,as) = split c f
+    in case viewl as of
+        EmptyL -> Nothing
+        x :< as' -> Just (x,bs <> as')
 
 --------------------------------------------------------------------------------
 ---------------------Sets as a measure for collect, probably broken as monoid---
@@ -125,6 +129,26 @@ data Path a = Path {
     } deriving  (Show,Eq,Ord)
 
 makeLenses ''Path
+
+data Scan a = Scan {
+    fathers :: Set a,
+    vertices :: Set a
+    }
+
+instance Ord a => Monoid (Scan a) where
+    Scan f1 e1 `mappend` Scan f2 e2 = Scan (f1 `mappend` f2) (e1 `mappend` e2)
+    mempty = Scan mempty mempty
+
+instance Ord a => Measured (Scan a) (Path a) where
+    measure (Path mf (IsoPath o _)) = Scan (maybe mempty S.singleton mf) (measure o)
+ 
+type HFT a = FingerTree (Scan a) (Path a)
+
+selectByVertice :: Ord a => a -> HFT a -> Maybe (Path a, HFT a)
+selectByVertice x = selectFT (S.member x . vertices)
+
+selectByFather :: Ord a => a -> HFT a -> Maybe (Path a, HFT a)
+selectByFather x = selectFT (S.member x . fathers)
 
 type Forest b a = [b a]
 
@@ -228,7 +252,7 @@ splitPath c x p@(Path mf dp) = g <$> c x dp where
 unsplitPath (Splitted l r) = Path (view father r) (view path l <> view path r)
 unsplitPath (Take p) = p
 
-joinAndReversePaths :: Ord a => Forest Path a -> Path a
+joinAndReversePaths :: Ord a => [Path a] -> Path a
 joinAndReversePaths xs = over path (swapIsoPath) $ 
     foldr1 (\(Path _ dp) (Path mf dp') ->  Path mf $ dp <> dp') xs
 
