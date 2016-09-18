@@ -99,9 +99,9 @@ splitIsoPath x p@(IsoPath o r) = let
 cutSplitIsoPath x p = let
     r = splitIsoPath x . swapIsoPath $ p
     f (Splitted (swapIsoPath -> x) (swapIsoPath -> y)) = 
-        Just $ Splitted y x
-    f (Take _) = Nothing
-    in join $ fmap f r
+       Splitted y x
+    f (Take p) = p
+    in fmap f r
 
 swapIsoPath :: IsoPath a -> IsoPath a
 swapIsoPath (IsoPath o r) = IsoPath r o
@@ -270,7 +270,7 @@ selectPath c x f = let
 type ExposeCore a = (Maybe a , Forest Path a)
 rerootCore      :: (Ord a)
                 => ExposeCore a -- actual results and
-                -> Either (ExposeCore a) (Result Path a, ExposeCore a) 
+                -> Either (ExposeCore a) (Result Path a, ExposeCore a)
 
 rerootCore (Nothing,f) = Left (Nothing,f)
 rerootCore (Just x, f) = case selectPath splitIsoPath x f of
@@ -317,11 +317,12 @@ root x = fmap unCollect . r x where
         Nothing -> Nothing 
         Just (unsplitPath -> Path mf (viewr . view orig -> _ :> x'),f') -> 
             maybe (Just x') (flip r f') mf
+
 -- | check 2 vertexes to be on the same tree
 connected :: Ord a =>  a -> a -> Forest Path a -> Bool
 connected x y = (==) <$> root x <*> root y
 
--- | create a new link
+-- | create a new link 
 link :: (Show a,Ord a) => a -> a -> Forest Path a -> Maybe (Forest Path a)
 link y x f = 
     let g (unsplitPath -> s, f') = mergeOrInsert s $ 
@@ -329,10 +330,11 @@ link y x f =
     in g <$> selectPath splitIsoPath x f 
 
 
-    
+
 cut :: Ord a => a -> Forest Path a -> Maybe (Forest Path a)
 cut x f = g <$>  selectPath cutSplitIsoPath x f where
     g (Splitted p1 p2, f) = set father Nothing p1 : mergeOrInsert p2 f
+    g (Take p, f) = set father Nothing p : f
 
 
 
