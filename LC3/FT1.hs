@@ -27,27 +27,31 @@ import Control.Monad.State
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
--- change inplace first element matching the change
+-- | change inplace first element matching the change (Data.List)
 change :: (a -> Maybe a) -> [a] -> Maybe [a]
 change t [] = Nothing
 change t (x:xs) = case t x of
     Nothing -> (x :) <$>  change t xs
     Just x' -> Just $ x' : xs
 
+-- | more powerful than unfoldr, returns the last generator value (Data.List)
 unfoldrE :: (b -> Either b (a,b)) -> b -> ([a],b)
 unfoldrE f x = case f x of
     Left y -> ([],y)
     Right (z,y) -> first (z:) $ unfoldrE f y
 
+-- | Node lenses (Data.Tree)
 label = lens rootLabel (\(Node x xs) y -> Node y xs)
+-- | Node lenses (Data.Tree)
 subs = lens subForest (\(Node x _) ys -> Node x ys)
 
+-- | Sort the children of a rosetree by label (Data.Tree)
 sortChildren :: Ord a => Tree a -> Tree a
 sortChildren  = over subs $ sortBy (comparing rootLabel)  . map sortChildren 
 
 --------------------------------------------------------------------------------
----------------------Sets as a measure for fingertrees--------------------------
---------------------------------------------------------------------------------
+---------------------Sets as a measure for collect, probably broken as monoid---
+------------------------check monotonicity -------------------------------------
 --------------------------------------------------------------------------------
 
 newtype Collect a = Collect {unCollect :: a} deriving Show
@@ -68,6 +72,12 @@ data IsoPath a = IsoPath {
     } deriving Show
 makeLenses ''IsoPath
 
+
+instance Foldable IsoPath where
+    foldr f x = foldr f x . toList
+
+fromList [] = IsoPath F.empty F.empty
+fromList (x:xs) = over orig (x <| ) . over rev (|> x) $ fromList xs
 instance Ord a => Monoid (IsoPath a) where
     IsoPath o r `mappend` IsoPath o' r' = 
         IsoPath (o `mappend` o') (r' `mappend` r)
@@ -84,6 +94,14 @@ splitIsoPath x p@(IsoPath o r) = let
     in  if null bo then Nothing
         else if null ao then Just $ Take p
         else Just $ Splitted (IsoPath ao br) (IsoPath bo $ ar |> w )
+
+-- | a cut below version of the above, failing silently on Take
+cutSplitIsoPath x p = let
+    r = splitIsoPath x . swapIsoPath $ p
+    f (Splitted (swapIsoPath -> x) (swapIsoPath -> y)) = 
+        Just $ Splitted y x
+    f (Take _) = Nothing
+    in join $ fmap f r
 
 swapIsoPath :: IsoPath a -> IsoPath a
 swapIsoPath (IsoPath o r) = IsoPath r o
@@ -195,10 +213,10 @@ pathsToTreesM = fmap (map (fromJust <$>)) . evalStateT (childrenM Nothing)
 
 
 ----------------------------------------------------------------
-
+type IsoCut a = a -> IsoPath a -> Maybe (Split (IsoPath a))
 -- split a path 
-splitPath :: Ord a => a -> Path a -> Maybe (Split (Path a))
-splitPath x p@(Path mf dp) = g <$> splitIsoPath x dp where
+splitPath :: Ord a => IsoCut a -> a -> Path a -> Maybe (Split (Path a))
+splitPath c x p@(Path mf dp) = g <$> c x dp where
     g (Splitted p1 p2) = Splitted (Path (Just x) p1) (Path mf p2)
     g (Take p) = Take (Path mf p)
 
@@ -218,6 +236,8 @@ mergeCorrection p = change $ \p' ->
 
 mergeOrInsert :: Ord a => Path a -> Forest Path a -> Forest Path a
 mergeOrInsert p f = maybe (p:f) id $ mergeCorrection p f
+
+
 --------------------------------------------------------------------------------
 --------Linking-----------------------------------------------------------------
 -- linking two vertex or creating an edge---------------------------------------
@@ -226,21 +246,21 @@ mergeOrInsert p f = maybe (p:f) id $ mergeCorrection p f
 
 
 -- result of a successful split
-data Result a = Result {
-    residual :: Maybe (Path a),
-    taken :: Path a
+data Result b a = Result {
+    residual :: Maybe (b a),
+    taken :: b a
     }
 
 
-unzipResults :: [Result a] -> ([Maybe (Path a)], [Path a])
+unzipResults :: [Result Path a] -> ([Maybe (Path a)], [Path a])
 unzipResults = unzip . map (\(Result r t)  -> (r,t))
 
 -- extract a splitted path from the forest given the splitting vertex
-selectPath :: Ord a => a -> Forest Path a 
+selectPath :: Ord a => IsoCut a -> a -> Forest Path a 
     -> Maybe (Split (Path a), Forest Path a)
-selectPath x f = let
+selectPath c x f = let
     (rs, unzip -> (f',_)) = partition (isJust . snd) $ 
-        zip <*> map (splitPath x) $ f
+        zip <*> map (splitPath c x) $ f
     in case rs of
         [(_,Just s)] -> Just $ (s,f')
         _ -> Nothing 
@@ -250,16 +270,16 @@ selectPath x f = let
 type ExposeCore a = (Maybe a , Forest Path a)
 exposeCore      :: (Ord a)
                 => ExposeCore a -- actual results and
-                -> Either (ExposeCore a) (Result a, ExposeCore a) 
+                -> Either (ExposeCore a) (Result Path a, ExposeCore a) 
 
 exposeCore (Nothing,f) = Left (Nothing,f)
-exposeCore (Just x, f) = case selectPath x f of
+exposeCore (Just x, f) = case selectPath splitIsoPath x f of
             (Just (Splitted r l,f')) -> Right (Result (Just r) l,(view father l,f'))
             (Just (Take p,f')) -> Right (Result Nothing p,(view father p,f'))
             Nothing -> error "vertex not found"
 
 exposeIterate :: (Ord a) => Maybe a -> Forest Path a -> 
-    ([Result a], Forest Path a)
+    ([Result Path a], Forest Path a)
 exposeIterate mf f = second snd $ unfoldrE exposeCore (mf,f)
 
 fromJustE (Just x) = x
@@ -288,10 +308,12 @@ expose  :: (Ord a)
         -> Forest Path a
 expose x = exposeInternal x id
 
+exposeM  = modify . expose
+
 -- | find the root of a node
 root :: Ord a => a -> Forest Path a -> Maybe a
 root x = fmap unCollect . r x where
-    r x f = case selectPath x f of
+    r x f = case selectPath splitIsoPath x f of
         Nothing -> Nothing 
         Just (unsplitPath -> Path mf (viewl . view orig -> x' :< _),f') -> 
             maybe (Just x') (flip r f') mf
@@ -304,17 +326,13 @@ link :: (Show a,Ord a) => a -> a -> Forest Path a -> Maybe (Forest Path a)
 link y x f = 
     let g (unsplitPath -> s, f') = mergeOrInsert s $ 
                         exposeInternal y (set father $ Just x) f' 
-    in g <$> selectPath x f 
+    in g <$> selectPath splitIsoPath x f 
 
 
-{-
-cut :: a -> Forest a -> Maybe (Forest a)
-cut x f = case takePath RC x f of
-        (Left _, _) -> Nothing
-        (Right (Result (Path _ dp) p),f') -> let 
-            (p',f'') = mergeCorrection p f'
-            in Path Nothing dp : p' : f''
--} 
+    
+cut :: Ord a => a -> Forest Path a -> Maybe (Forest Path a)
+cut x f = g <$>  selectPath cutSplitIsoPath x f where
+    g (Splitted p1 p2, f) = set father Nothing p1 : mergeOrInsert p2 f
 
 
 
