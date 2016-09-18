@@ -100,7 +100,7 @@ cutSplitIsoPath x p = let
     r = splitIsoPath x . swapIsoPath $ p
     f (Splitted (swapIsoPath -> x) (swapIsoPath -> y)) = 
        Splitted y x
-    f (Take p) = p
+    f x = x
     in fmap f r
 
 swapIsoPath :: IsoPath a -> IsoPath a
@@ -333,7 +333,7 @@ link y x f =
 
 cut :: Ord a => a -> Forest Path a -> Maybe (Forest Path a)
 cut x f = g <$>  selectPath cutSplitIsoPath x f where
-    g (Splitted p1 p2, f) = set father Nothing p1 : mergeOrInsert p2 f
+    g (Splitted (swapIsoPath -> p1) (swapIsoPath -> p2), f) = set father Nothing p1 : mergeOrInsert p2 f
     g (Take p, f) = set father Nothing p : f
 
 
