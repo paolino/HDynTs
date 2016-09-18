@@ -265,22 +265,22 @@ selectPath c x f = let
         [(_,Just s)] -> Just $ (s,f')
         _ -> Nothing 
 
--- core expose function, cut and take the dependency of the right cutted piece
+-- core reroot function, cut and take the dependency of the right cutted piece
 -- and cut again, collecting results
 type ExposeCore a = (Maybe a , Forest Path a)
-exposeCore      :: (Ord a)
+rerootCore      :: (Ord a)
                 => ExposeCore a -- actual results and
                 -> Either (ExposeCore a) (Result Path a, ExposeCore a) 
 
-exposeCore (Nothing,f) = Left (Nothing,f)
-exposeCore (Just x, f) = case selectPath splitIsoPath x f of
+rerootCore (Nothing,f) = Left (Nothing,f)
+rerootCore (Just x, f) = case selectPath splitIsoPath x f of
             (Just (Splitted r l,f')) -> Right (Result (Just r) l,(view father l,f'))
             (Just (Take p,f')) -> Right (Result Nothing p,(view father p,f'))
             Nothing -> error "vertex not found"
 
-exposeIterate :: (Ord a) => Maybe a -> Forest Path a -> 
+rerootIterate :: (Ord a) => Maybe a -> Forest Path a -> 
     ([Result Path a], Forest Path a)
-exposeIterate mf f = second snd $ unfoldrE exposeCore (mf,f)
+rerootIterate mf f = second snd $ unfoldrE rerootCore (mf,f)
 
 fromJustE (Just x) = x
 fromJustE Nothing = error "invariant broken"
@@ -289,10 +289,10 @@ acceptOneNothing (Nothing : xs) = map fromJustE xs
 acceptOneNothing (Just x:xs) = x: map fromJustE xs
 acceptOneNothing [] = error "cutting the void!"
 
-exposeInternal :: (Ord a) => a -> (Path a -> Path a) 
+rerootInternal :: (Ord a) => a -> (Path a -> Path a) 
     -> Forest Path a -> Forest Path a
-exposeInternal x c f = let
-    (unzipResults -> (acceptOneNothing -> rs,ts),f') = exposeIterate (Just x) f
+rerootInternal x c f = let
+    (unzipResults -> (acceptOneNothing -> rs,ts),f') = rerootIterate (Just x) f
     in mergeOrInsert (c $ joinAndReversePaths ts) $ rs ++ f' 
 
 --------------------------------------------------------------------------------
@@ -302,20 +302,20 @@ exposeInternal x c f = let
 --------------------------------------------------------------------------------
 
 -- | bring the element to be the root of its tree
-expose  :: (Ord a) 
+reroot  :: (Ord a) 
         => a 
         -> Forest Path a 
         -> Forest Path a
-expose x = exposeInternal x id
+reroot x = rerootInternal x id
 
-exposeM  = modify . expose
+rerootM  = modify . reroot
 
 -- | find the root of a node
 root :: Ord a => a -> Forest Path a -> Maybe a
 root x = fmap unCollect . r x where
     r x f = case selectPath splitIsoPath x f of
         Nothing -> Nothing 
-        Just (unsplitPath -> Path mf (viewl . view orig -> x' :< _),f') -> 
+        Just (unsplitPath -> Path mf (viewr . view orig -> _ :> x'),f') -> 
             maybe (Just x') (flip r f') mf
 -- | check 2 vertexes to be on the same tree
 connected :: Ord a =>  a -> a -> Forest Path a -> Bool
@@ -325,7 +325,7 @@ connected x y = (==) <$> root x <*> root y
 link :: (Show a,Ord a) => a -> a -> Forest Path a -> Maybe (Forest Path a)
 link y x f = 
     let g (unsplitPath -> s, f') = mergeOrInsert s $ 
-                        exposeInternal y (set father $ Just x) f' 
+                        rerootInternal y (set father $ Just x) f' 
     in g <$> selectPath splitIsoPath x f 
 
 

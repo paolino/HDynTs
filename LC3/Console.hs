@@ -29,8 +29,8 @@ pt f = do
     mapM_ (putStrLn . drawPath) $ f
 
 
-data Lang a = L a a | C a | E a | S deriving Read
-doc = "L x y | C x | E x | S where Read a => x :: a"
+data Lang a = L a a | C a | RR a | S deriving Read
+doc = "L x y | C x | RR x | S where Read a => x :: a"
 
 play :: forall a. (Ord a, Read a, Show a) =>  Forest Path a -> IO ()
 play f = runInputT defaultSettings . flip evalStateT f $ runContT r return where
@@ -48,7 +48,7 @@ play f = runInputT defaultSettings . flip evalStateT f $ runContT r return where
                             Just f -> put f
                         
                 [(C x,_)] -> lift $ outputStrLn "not implemented :'["
-                [(E x,_)] -> modify $ expose x
+                [(RR x,_)] -> modify $ reroot x
                 [(S,_)] -> get >>= liftIO . pt
                 _ -> lift . outputStrLn $ doc
         
