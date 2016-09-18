@@ -66,6 +66,7 @@ type FT a = FingerTree (Set a) (Collect a)
 ---paths coupled with their reversed vrsion-------------------------------------
 --------------------------------------------------------------------------------
 
+
 data IsoPath a = IsoPath {
     _orig :: FT a,
     _rev :: FT a 
@@ -87,24 +88,28 @@ instance Ord a => Monoid (IsoPath a) where
 data Split a = Take a | Splitted a a
     deriving (Show, Functor)
 
-splitIsoPath :: Ord a => a -> IsoPath a -> Maybe (Split (IsoPath a))
+type IsoCut a = a -> IsoPath a -> Maybe (Split (IsoPath a), a)
+
+splitIsoPath :: Ord a => IsoCut a
 splitIsoPath x p@(IsoPath o r) = let 
     (ao,bo) = split (S.member x) o
     (ar, viewl -> w :< br) = split (S.member x) r
     in  if null bo then Nothing
-        else if null ao then Just $ Take p
-        else Just $ Splitted (IsoPath ao br) (IsoPath bo $ ar |> w )
+        else if null ao then Just $ (Take p,x)
+        else Just $ (Splitted (IsoPath ao br) (IsoPath bo $ ar |> w ),x)
 
 -- | a cut below version of the above, failing silently on Take
+cutSplitIsoPath :: Ord a => IsoCut a
 cutSplitIsoPath x p = let
     r = splitIsoPath x . swapIsoPath $ p
-    f (Splitted (swapIsoPath -> x) (swapIsoPath -> y)) = 
-       Splitted y x
-    f x = x
+    f (Splitted (swapIsoPath -> x) (swapIsoPath -> y),_) = 
+       (Splitted y x, unCollect $ tailIsoPath x) 
+    f (Take (swapIsoPath -> x),_) = (Take x,undefined)
     in fmap f r
 
 swapIsoPath :: IsoPath a -> IsoPath a
 swapIsoPath (IsoPath o r) = IsoPath r o
+
 
 tailIsoPath :: Ord a => IsoPath a -> Collect a
 tailIsoPath (IsoPath (viewl -> w :< _) _) = w
@@ -213,12 +218,11 @@ pathsToTreesM = fmap (map (fromJust <$>)) . evalStateT (childrenM Nothing)
 
 
 ----------------------------------------------------------------
-type IsoCut a = a -> IsoPath a -> Maybe (Split (IsoPath a))
 -- split a path 
 splitPath :: Ord a => IsoCut a -> a -> Path a -> Maybe (Split (Path a))
 splitPath c x p@(Path mf dp) = g <$> c x dp where
-    g (Splitted p1 p2) = Splitted (Path (Just x) p1) (Path mf p2)
-    g (Take p) = Take (Path mf p)
+    g (Splitted p1 p2,x) = Splitted (Path (Just x) p1) (Path mf p2)
+    g (Take p,_) = Take (Path mf p)
 
 unsplitPath (Splitted l r) = Path (view father r) (view path l <> view path r)
 unsplitPath (Take p) = p
