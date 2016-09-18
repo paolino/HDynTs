@@ -36,21 +36,26 @@ play :: forall a. (Ord a, Read a, Show a) =>  Forest Path a -> IO ()
 play f = runInputT defaultSettings . flip evalStateT f $ runContT r return where
     r :: ContT () (StateT (Forest Path a) (InputT IO)) ()
     r = callCC $ \stop -> forever $ do
-        mr <- lift . lift $ getInputLine "> "
-        case mr of
-            Nothing -> stop ()
-            Just r -> lift $ case reads r of 
-                [(L x y,_)] -> do
-                        f <- get 
-                        case safeLink x y f of
-                            Nothing -> lift $ outputStrLn 
-                                "nodes connected of vertex not found"
-                            Just f -> put f
-                        
-                [(C x,_)] -> lift $ outputStrLn "not implemented :'["
-                [(RR x,_)] -> modify $ reroot x
-                [(S,_)] -> get >>= liftIO . pt
-                _ -> lift . outputStrLn $ doc
+            mr <- lift . lift $ getInputLine "> "
+            case mr of
+                Nothing -> stop ()
+                Just r -> lift $ case reads r of 
+                    [(L x y,_)] -> do
+                            f <- get 
+                            case safeLink x y f of
+                                Nothing -> lift $ outputStrLn 
+                                    "nodes connected or vertex not found"
+                                Just f -> put f
+                            
+                    [(C x,_)] -> do
+                            f <- get 
+                            case cut x f of
+                                Nothing -> lift $ outputStrLn 
+                                    "cutting a root or vertex not found"
+                                Just f -> put f
+                    [(RR x,_)] -> modify $ reroot x
+                    [(S,_)] -> get >>= liftIO . pt
+                    _ -> lift . outputStrLn $ doc
         
 ex1 = treesToPaths [Node 1 [Node 2 [], Node 3 []], 
     Node 4 [Node 5[Node 7 []], Node 6[]]]
