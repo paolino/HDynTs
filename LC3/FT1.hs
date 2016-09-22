@@ -1,6 +1,6 @@
 {-# language MultiParamTypeClasses, TemplateHaskell, ScopedTypeVariables, 
     ViewPatterns, FlexibleInstances,DeriveFunctor, StandaloneDeriving, 
-    NoMonomorphismRestriction, FlexibleContexts #-}
+    NoMonomorphismRestriction, FlexibleContexts, TypeFamilies #-}
 
 module FT1 where
 
@@ -150,7 +150,6 @@ selectByVertice x = selectFT (S.member x . vertices)
 selectByFather :: Ord a => a -> HFT a -> Maybe (Path a, HFT a)
 selectByFather x = selectFT (S.member x . fathers)
 
-type Forest b a = [b a]
 
 --------------------------------------------------------------------------------
 ---------Deconstruction---------------------------------------------------------
@@ -159,9 +158,9 @@ type Forest b a = [b a]
 --------------------------------------------------------------------------------
 -- | convert a forest of trees to a forest of paths
 treesToPaths   :: Ord a 
-            => Forest Tree a -- ^ tree to deconstruct
-            -> Forest Path a -- ^ deconstruction
-treesToPaths = concatMap paths'  where
+            => [Tree a] -- ^ tree to deconstruct
+            -> HFT  a -- ^ deconstruction
+treesToPaths = F.fromList . concatMap paths'  where
     paths' (Node x []) = [Path Nothing (IsoPath ft ft)] where 
                      ft = F.singleton $ Collect x
     paths' (Node x xs) = let 
@@ -172,6 +171,7 @@ treesToPaths = concatMap paths'  where
         in 
         Path h (IsoPath (o |> Collect x) (Collect x <| r)) : map f ps
 
+{-
 --------------------------------------------------------------------------------
 ----------Reconstruction -------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -375,3 +375,4 @@ rerooter t t'  = foldr reroot t' .  map (unCollect . (\(viewl -> x :< _) -> x). 
 newtype TreeEq a = TreeEq (Forest Path a)
 instance Ord a => Eq (TreeEq a) where
     TreeEq t1 == TreeEq t2 = sort (rerooter t1 t2) == sort t1
+    -}
