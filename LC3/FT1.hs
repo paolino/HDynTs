@@ -369,7 +369,8 @@ cut x f = g <$>  selectPath cutSplitIsoPath x f where
 -------- stuff
 
 rerooter :: Ord a => Forest Path a -> Forest Path a -> Forest Path a
-rerooter t t'  = foldr reroot t' .  map (unCollect . (\(viewl -> x :< _) -> x). view (path.rev)) . filter (isNothing . view father) $ t
+rerooter t t'  = foldr reroot t' .  
+    ap (unCollect . (\(viewl -> x :< _) -> x). view (path.rev)) . filter (isNothing . view father) $ t
 
 -- | Forest Path equality up to sorting and rerooting
 newtype TreeEq a = TreeEq (Forest Path a)

@@ -1,35 +1,8 @@
 {-# language FlexibleInstances #-}
-import FT1
-import Test.QuickCheck
-import Data.Tree hiding (Forest)
-import Console
-import Control.Monad.State
-import Control.Monad.Identity
-import Data.Foldable
-import Data.List
 
-sizedArbTestRoseT :: Int -> Gen (Tree ())
-sizedArbTestRoseT 0 = do
-  c <- arbitrary
-  return $ Node c []
-sizedArbTestRoseT n = do
-  c <- arbitrary
-  subtreeCount <- choose (0,n-1)
-  subtrees <- vectorOf subtreeCount (sizedArbTestRoseT (n-1))
-  return $ Node c subtrees
-
-relabel :: Tree a -> State [Int] (Tree Int)
-relabel (Node _ cs) = do
-    x <- StateT $ \(x:xs) -> return (x,xs)
-    cs' <- mapM relabel cs
-    return $ Node x cs'
-
-relabeller :: Tree a -> Tree Int
-relabeller t = evalState (relabel t) [1..]
-
-arbitraryTree :: Int -> Gen (Tree Int)
-arbitraryTree m = fmap relabeller (sizedArbTestRoseT m)
-
+module QC where
+--  import FT1
+{-
 testConversionsIsomorphism :: Ord a => Forest Tree a -> Bool
 testConversionsIsomorphism t = (pathsToTrees . treesToPaths) t ==  t
 
@@ -47,7 +20,7 @@ testLinkCutIsomorphism xt yt' = let
             y <- elements ys
             let Just forest' = link x y forest >>= cut x
             return $ TreeEq forest == TreeEq forest'
-
+-}
 {-
 Node    {rootLabel = 1, subForest = [
             Node {rootLabel = 2, subForest = [
