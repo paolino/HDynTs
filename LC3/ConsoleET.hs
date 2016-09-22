@@ -25,8 +25,8 @@ news = do
         $ arbitraryTree 4
     return $ fromList [x,y]
 
-play :: IO ()
-play = do
+main :: IO ()
+main = do
     f <- news
     runInputT defaultSettings . flip evalStateT f $ runContT r return where
     r = callCC $ \stop -> forever $ do
