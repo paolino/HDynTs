@@ -14,7 +14,7 @@ import Test.QuickCheck (sample')
 import Data.Types.Isomorphic (to, Injective, Iso)
 import Data.Proxy
 
-import HDynTs.Lib.Tree (arbitraryTree, relabelForest)
+import HDynTs.Lib.Tree (arbitraryForest)
 import HDynTs.Interface
 
 import HDynTs.EulerTours.Forest
@@ -23,9 +23,7 @@ data Lang a =  L a a | D a a | C a a | H deriving Read
 doc = "L x y : link x and y verteces\nD x y : unlink x and y verteces\nC x y : check x and y are connected\nH :this help\nCTRL-D: exit\nall the rest will create a new forest\n"
 
 news :: (Injective [Tree Int] (t Int) , MonadIO m) => m (t Int)
-news = do
-    x:y:_ <- liftIO $ fmap relabelForest .sample' $ arbitraryTree 4
-    return $ to [x,y]
+news = to . head <$> (liftIO . sample' $ arbitraryForest 2 4)
 
 errore x = "ERROR: " ++ x ++ "\n"
 parseErrors :: Show a => GraphQueryExc a b -> String
@@ -37,7 +35,8 @@ parseErrors (VertexNotFound x) =
     "vertex " ++ show x ++ " was not found in the forest"
 
 report x = "RESULT: " ++ x ++ "\n" 
-parseConnected x y t = "verteces " ++ show x ++ " " ++ show y ++ " are " ++ (if t then "" else "not ") ++ "connected"
+parseConnected x y t = "verteces " ++ show x ++ " " ++ show y ++ " are " 
+    ++ (if t then "" else "not ") ++ "connected"
 
 catchErrorM :: (MonadIO m ,Show a) => (String -> m ()) -> (r -> m ()) 
     -> Either (GraphQueryExc a b) r -> m ()

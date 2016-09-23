@@ -1,6 +1,20 @@
 {-# language ViewPatterns, DeriveFunctor, NoMonomorphismRestriction #-}
-
-module HDynTs.Lib.Tree where
+-- | Extensions to the Data.Tree module
+module HDynTs.Lib.Tree (
+    -- * types
+    TreeEq (..),
+    -- * quick check
+    arbitraryTree,
+    arbitraryForest,
+    -- * zipper
+    Z,
+    mkZ,
+    focus,
+    up,
+    insertC,
+    tree
+    )
+    where
 
 import Test.QuickCheck
 import Control.Monad.State
@@ -11,7 +25,6 @@ import Data.Ord (comparing)
 
 
 -- | Tree equality equality up to children natural sorting 
-
 newtype TreeEq a = TreeEq (Tree a) 
 
 instance Ord a => Eq (TreeEq a) where
@@ -19,20 +32,18 @@ instance Ord a => Eq (TreeEq a) where
         let sort = sortBy (comparing rootLabel)
         in x == y && sort xs == sort ys
 
-sameTree x y = TreeEq x == TreeEq y
+--------------------------------------------------------------------------------
+-------------Quick Check--------------------------------------------------------
+--------------------------------------------------------------------------------
 
----------------------------------------------------------------------------------
--------------Quick Check--------------------------------------------------------------------
----------------------------------------------------------------------------------
----------------------------------------------------------------------------------
----------------------------------------------------------------------------------
----------------------------------------------------------------------------------
+--  generate a random tree mix at most n levels and n aperture
 gTree :: Int -> Gen (Tree ())
 gTree 0 = return $ Node () []
 gTree n = do
   m <- choose (0,n-1)
   Node () <$>  vectorOf m (gTree (n-1))
 
+-- relabel one tree consuming state
 relabel :: Tree a -> State [Int] (Tree Int)
 relabel (Node _ cs) = do
     x <- StateT $ return . fromJust . uncons
@@ -45,52 +56,49 @@ relabelForest f = evalState (mapM relabel f) [1..]
 relabeller :: Tree a -> Tree Int
 relabeller t = evalState (relabel t) [1..]
 
-arbitraryTree :: Int -> Gen (Tree Int)
+-- | create an arbitrary tree with at most m levels and m aperture
+arbitraryTree   :: Int  -- ^ m
+                -> Gen (Tree Int)
 arbitraryTree m = fmap relabeller (gTree m)
 
----------------------------------------------------------------------------------
----------Minimal Zipper----------------------------------------------------------
----------------------------------------------------------------------------------
----------------------------------------------------------------------------------
+-- | create an arbitrary n-tree forest with at most m levels and m aperture
+arbitraryForest     :: Int -- ^ n
+                    -> Int -- ^ m
+                    -> Gen [Tree Int]
+arbitraryForest n m = fmap relabelForest $ replicateM n $ gTree m
 
+--------------------------------------------------------------------------------
+---------Minimal Zipper---------------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+-- | zipper structure
 data Z a  = Z (Tree a) [C a] deriving (Show)
+-- | context structure
+
 data C a = C a [Tree a] deriving (Show)
 
+-- | create a zipper on a singleton rose tree
 mkZ :: a -> Z a
 mkZ x = Z (Node x []) []
 
+-- | get the element at focus
 focus :: Z a -> a
 focus (Z (Node x _) _) = x
 
+-- | move the zipper down, unsafe
 down (Z (Node n (c:cs)) bcs) = Z c (C n cs : bcs)
 
+-- | move the zipper up, safe
 up (Z t []) = Nothing
 up (Z t (C n rs : tcs)) = Just $ Z (Node n (t : rs)) tcs 
 
+-- | insert a child in front of the others, if present, safe
 insertC x (Z (Node y ys) cs) = down $ Z (Node y (Node x []: ys)) cs 
 
+-- | extract the tree from the zipper bringing it to the top
 tree = (\(Z t _) -> t) . top where
     top z = maybe z top $ up z
-
-
-{-
-
-newtype M a b = M (Z a -> Maybe (b,Z a)) deriving Functor
-instance Applicative (M a) where
-    M f <*> M g = M $ \s -> do
-            (f',s') <- f s
-            (y,s'') <- g s'
-            return $ (f' y,s'')
-    pure x = M $ \s -> Just (x,s)
-
-instance Monad (M a) where
-    M f >>= g = M $ \s -> f s >>= \(x,s') -> let M k = g x in k s'
-
-down' = M $ \t -> (,) () <$> down t
-up' = M $ \t -> (,) () <$> up t
-insertC' x  = M $ \t -> (,) () <$> insertC x t
-focus' = M $ \t -> Just (focus t, t)
--}
 
 
 

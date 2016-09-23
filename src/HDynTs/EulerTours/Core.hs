@@ -1,5 +1,18 @@
+{-# language MultiParamTypeClasses#-}
+{-# language ScopedTypeVariables#-}
+{-# language ViewPatterns#-}
+{-# language GeneralizedNewtypeDeriving#-}
+{-# language TypeSynonymInstances#-}
+{-# language FlexibleInstances#-}
+{-# language DataKinds#-}
+{-# language GADTs#-}
+{-# language FlexibleContexts#-}
+{-# language UndecidableInstances #-}
 
-{-# language MultiParamTypeClasses, ScopedTypeVariables, ViewPatterns, GeneralizedNewtypeDeriving, TypeSynonymInstances, FlexibleInstances,TemplateHaskell, DataKinds, GADTs, FlexibleContexts, UndecidableInstances #-}
+-- | Euler Tour core functionalities. A Tour is a FingerTree of the elements,
+-- coupled with its reverse. All modifications are sublinear in the number of
+-- elements. The TourMonoid is partly exported to permit composition with 
+-- above structures.
 
 module HDynTs.EulerTours.Core (
     -- * types
@@ -9,7 +22,6 @@ module HDynTs.EulerTours.Core (
     TourMonoid,
     tmMember,
     tmPosition,
-    tmResetPosition,
     -- * operation 
     splice,
     father,
@@ -32,6 +44,8 @@ import Data.Maybe (fromJust)
 import HDynTs.Lib.Tree (insertC,focus,up, tree,mkZ)
 
 newtype TourElem a = TourElem a deriving (Show,Ord,Eq)
+
+-- | The monoid for the fingertree representation of the tour
 newtype TourMonoid a = TourMonoid (Set a,Sum Int) deriving  (Monoid,Show)
 
 -- | a predicate to test the presence of an elem in the tour
@@ -42,7 +56,7 @@ tmMember x (TourMonoid (v,_)) = x `member` v
 tmPosition :: TourMonoid a -> Int
 tmPosition (TourMonoid (_,Sum s)) = s
 
--- | set the position to one in the monoid
+--  set the position to one in the monoid
 tmResetPosition :: TourMonoid a -> TourMonoid a 
 tmResetPosition (TourMonoid (x,_)) = TourMonoid (x,1)
 
@@ -53,6 +67,9 @@ type STour a = FingerTree (TourMonoid a) (TourElem a)
 
 -- | Euler tour representation
 data Tour a = Tour (STour a) (STour a)
+
+instance Ord a => Measured (TourMonoid a) (Tour a) where
+    measure =  tmResetPosition . tourMonoid 
 
 -- | Extract a valid monoid from a tour
 tourMonoid :: Ord a => Tour a -> TourMonoid a
