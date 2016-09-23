@@ -78,7 +78,7 @@ loop = do
                         catchErrorM  (lift . outputStrLn) return
                     [(D x y,_)] -> lift $ gQuery (Delete x y) >>= 
                         catchErrorM  (lift . outputStrLn) return
-                    [(C x y,_)] -> lift $ gQuery (Connected x y) >>= 
+                    [(C x y,_)] -> lift $ gQuery (Connected  x y) >>= 
                         catchErrorM  (lift . outputStrLn) 
                         (lift . outputStrLn . report . parseConnected x y )
                     [(H,_)] -> help stop 
