@@ -19,8 +19,8 @@ import HDynTs.Interface
 
 import HDynTs.EulerTours.Forest
 
-data Lang a =  L a a | D a a | C a a | H deriving Read
-doc = "L x y : link x and y verteces\nD x y : unlink x and y verteces\nC x y : check x and y are connected\nH :this help\nCTRL-D: exit\nall the rest will create a new forest\n"
+data Lang a =  L a a | D a a | C a a | H | N | S deriving Read
+doc = "L x y: link x and y verteces\nD x y: unlink x and y verteces\nC x y: check x and y are connected\nN: new random forest\nS: ouput the forest\nCTRL-D: exit\n"
 
 news :: (Injective [Tree Int] (t Int) , MonadIO m) => m (t Int)
 news = to . head <$> (liftIO . sample' $ arbitraryForest 2 4)
@@ -63,11 +63,12 @@ help stop = do
         Nothing -> stop ()
         _ -> return ()
 loop = do
+    let out = get >>= liftIO . 
+              mapM_ (putStrLn . drawTree . fmap show) . 
+              (to :: t Int -> [Tree Int])
     callCC $ \stop -> do
         help stop
         forever $ do
-            get >>= liftIO . mapM_ (putStrLn . drawTree . fmap show) . 
-                (to :: t Int -> [Tree Int])
             mr <- lift . lift $ getInputLine "> "
             lift . lift $ outputStrLn ""
             case mr of
@@ -81,7 +82,9 @@ loop = do
                         catchErrorM  (lift . outputStrLn) 
                         (lift . outputStrLn . report . parseConnected x y )
                     [(H,_)] -> help stop 
-                    _ -> lift $ news >>= put 
+                    [(S,_)] -> out
+                    [(N,_)] -> lift (news >>= put) >> out
+                    _ -> help stop
             lift . lift $ outputStrLn " ----------- ~~~~~~~~~~~~~ ----------"
         
 main = run (Proxy :: Proxy (TourForest Int))
