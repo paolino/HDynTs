@@ -34,6 +34,7 @@ data ETR a = ETR {
     } deriving Show
 
 valid (ETR o r) = o == F.reverse r
+
 instance Ord a => Monoid (ETR a) where
     ETR o r `mappend` ETR o' r' = ETR (o `mappend` o') (r' `mappend` r)
     mempty = ETR mempty mempty
@@ -70,9 +71,9 @@ reroot :: Ord a => a -> ETR a -> ETR a
 reroot x e@(ETR o@(viewl -> MP x' :< _) r) 
     | x == x' = e
     | otherwise = let
-        (o1,o2) = split (S.member x . vmpSet) o
-        (r1, r2) = split (flip (>) (vmpSize (measure o2)) . vmpSize) r
-        in ETR ((o2 `mcolls` r2) |> MP x) (MP x <| (o1 `mcolls` r1))
+        (o1,viewr -> o2 :> _) = split (S.member x . vmpSet) o
+        (viewl -> _ :< r1, r2) = split (flip (>) (vmpSize (measure o2)) . vmpSize) r
+        in ETR ((o2 <> o1) |> MP x) (MP x <| (r2 <> r1))
 
 xt@(viewr -> xs :> x ) `mcolls` yt@(viewl -> y :< ys) 
     | x == y = (xs |> x) <> ys

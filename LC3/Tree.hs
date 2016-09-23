@@ -41,6 +41,7 @@ relabel (Node _ cs) = do
 
 relabelForest :: [Tree a] -> [Tree Int] 
 relabelForest f = evalState (mapM relabel f) [1..]
+
 relabeller :: Tree a -> Tree Int
 relabeller t = evalState (relabel t) [1..]
 
