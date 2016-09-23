@@ -3,9 +3,9 @@ module Test.Stdin.Tester where
 
 import Control.Monad
 import System.IO
-import DynTClass
+import Interface
 
-testStdin :: forall dynT . DynT dynT Char => dynT Char -> IO ()
+testStdin :: forall dynT . GraphInterface dynT Char => dynT Char -> IO ()
 testStdin p = do
     n <- readLn
     ds :: Coll dynT (dynT Char) <- fmap create . replicateM n $ do

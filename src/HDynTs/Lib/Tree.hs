@@ -1,6 +1,6 @@
 {-# language ViewPatterns, DeriveFunctor, NoMonomorphismRestriction #-}
 
-module Tree where
+module HDynTs.Lib.Tree where
 
 import Test.QuickCheck
 import Control.Monad.State

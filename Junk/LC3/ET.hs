@@ -16,7 +16,7 @@ import Test.QuickCheck
 import Data.Tree
 import Data.Maybe
 
-import Tree
+-- import Tree
 
 newtype MP a = MP a deriving (Show,Ord,Eq)
 newtype VMP a = VMP (Set a,Sum Int) deriving  (Monoid,Show)

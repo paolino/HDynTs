@@ -3,11 +3,11 @@
 
 name:                HDynTs
 version:             0.1.0.0
-synopsis:            dynTs in haskell
--- description:         
+synopsis:            Dynamic Trees in haskell
+description:         Searching for a sublinear solution to link-cut operations on trees. 
 license:             BSD3
 license-file:        LICENSE
-author:              paolo veronelli
+author:              Paolo Veronelli, Juan Carlos Saenz-Carrasco
 maintainer:          paolo.veronelli@gmail.com
 -- copyright:           
 category:            Data
@@ -15,13 +15,16 @@ build-type:          Simple
 extra-source-files:  ChangeLog.md, README.md
 cabal-version:       >=1.10
 
-executable StdinNaive
-    main-is:    Test/Stdin/Naive.hs
-    build-depends:       base >=4.9 && <4.10, containers >=0.5 && <0.6
+library
+    hs-source-dirs: src
+    exposed-modules:    HDynTs.Lib.Tree, HDynTs.Lib.FingerTree, HDynTs.Interface, HDynTs.EulerTours.Core, HDynTs.EulerTours.Forest 
+    build-depends:       base >=4.9 && <4.10, containers >=0.5 && <0.6, QuickCheck, mtl, fingertree, type-iso
+    default-language:    Haskell2010
+   
+executable hdynts
+    hs-source-dirs: src
+    main-is:    executables/Console.hs
+    build-depends:       base >=4.9 && <4.10, containers >=0.5 && <0.6, QuickCheck, mtl, fingertree, haskeline,type-iso
     default-language:    Haskell2010
 
-library
-    exposed-modules:     DynTClass, Implementation.Naive 
-    build-depends:       base >=4.9 && <4.10, containers >=0.5 && <0.6
-    -- hs-source-dirs:      
-    default-language:    Haskell2010
+
