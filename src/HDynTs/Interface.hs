@@ -4,7 +4,7 @@
 {-# language FunctionalDependencies#-}
 {-# language FlexibleContexts #-}
 
--- | Implementable classes for dynamic trees implementation. 
+-- | Classes for dynamic trees implementation. 
 module HDynTs.Interface where
 
 import Control.Monad.State (Monad, MonadState)

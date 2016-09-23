@@ -5,7 +5,10 @@
 {-# language GADTs#-}
 
 {-# language UndecidableInstances #-}
--- | managing a forest of Tours
+
+-- | Managing a forest of Tours. A fingertree is holding the forest of Tours.
+-- Selecting a Tour is sublinear in the number of verteces. The membership part
+-- of the monoid is taken from the underlying fingertree for Tour.
 module HDynTs.EulerTours.Forest (TourForest) where
 
 import Data.Monoid (Sum (..))
@@ -78,7 +81,8 @@ instance Ord a => Injective [Tree a] (TourForest a) where
     to  = TourForest . fromList . map fromTree 
 
 instance Ord a => Iso [Tree a] (TourForest a)
-instance (Monad m, MonadState (TourForest a) m, Ord a) => GraphInterface m TourForest a where
+instance (Monad m, MonadState (TourForest a) m, Ord a) 
+        => GraphInterface m TourForest a where
     gQuery (Link x y) = gets (link x y) >>= catchM
     gQuery (Delete x y) = gets (delete x y) >>= catchM
     gQuery (Connected x y) = gets (connected x y) 
