@@ -32,7 +32,7 @@ import HDynTs.Interface (GraphInterface (gQuery),
 
 
 -- | A forest of Tours
-newtype TourForest a = TourForest (FingerTree (Set a) (Tour a))
+newtype TourForest a = TourForest (FingerTree (Set a) (Tour a)) deriving Show
 
 -------------------------------------------------------------------------------
 -------------------- Graph based interface ------------------------------------
@@ -50,15 +50,11 @@ link x y (TourForest h) = case select (member x) h of
                         (splice (reroot x ex) y ey) <| h''
 delete :: Ord a => a -> a -> TourForest a 
     -> Either (GraphQueryExc a GQDelete) (TourForest a)
-delete x y (TourForest h) = case select (member x) h of
-        Nothing -> Left $ VertexNotFound x
-        Just (ex,h') -> case  select (member y) h  of
-            Nothing -> Left $ VertexNotFound y
-            Just _ -> let 
-                check k h = (h,ex) <$ (father h ex >>= guard . (== k))
-                in case check x y <|> check y x of 
+delete x y (TourForest h) = case select (member y) h of
+        Nothing -> Left $ VertexNotFound y
+        Just (reroot y -> e,h') -> case father x e >>= guard . (== y) of
                     Nothing -> Left $  AlreadySeparatedVerteces x y
-                    Just (uncurry extract -> (e1,e2)) -> 
+                    Just () -> let (e1,e2) = extract x e in 
                         TourForest <$> (Right $ e1 <| e2 <| h')
 
 connected :: Ord a => a -> a -> TourForest a 

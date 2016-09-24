@@ -43,7 +43,7 @@ catchErrorM :: (MonadIO m ,Show a) => (String -> m ()) -> (r -> m ())
     -> Either (GraphQueryExc a b) r -> m ()
 catchErrorM f g = either (f . errore . parseErrors) g 
 
-run  :: forall t . (
+run  :: forall t . (Show (t Int),
         GraphInterface (StateT (t Int) (InputT IO)) t Int, 
         Iso [Tree Int] (t Int),Spanning t Int
         ) 
@@ -54,12 +54,16 @@ run _ = (news :: IO (t Int)) >>= runInputT defaultSettings .
 
 help = lift . lift . outputStrLn $ doc
 
-out :: forall t. Injective (t Int) [Tree Int] => String 
+out :: forall t. (Show (t Int), Injective (t Int) [Tree Int]) => String 
     -> StateT (t Int) (InputT IO) ()
-out x =  get >>= liftIO . mapM_ (putStrLn . drawTree . fmap show) . 
-         (to :: t Int -> [Tree Int]) >> (lift . outputStrLn $ x)
+out x =     do
+                let g t = do
+                        putStrLn . drawTree . fmap show $ t
+                get >>= \xs -> do
+                    liftIO . mapM_ g .(to :: t Int -> [Tree Int]) $ xs
+                lift . outputStrLn $ x
 
-loop :: forall t . (
+loop :: forall t . (Show (t Int),
         GraphInterface (StateT (t Int) (InputT IO)) t Int, 
         Iso [Tree Int] (t Int),Spanning t Int
         ) 

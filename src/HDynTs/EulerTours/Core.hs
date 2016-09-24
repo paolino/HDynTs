@@ -24,7 +24,9 @@ module HDynTs.EulerTours.Core (
     reroot, 
     -- * conversion
     fromTree,
-    toTree
+    toTree,
+    -- * debug
+    valid
     )
     where
 
@@ -61,7 +63,7 @@ instance Ord a => Measured (TourMonoid a) (TourElem a) where
 type STour a = FingerTree (TourMonoid a) (TourElem a) 
 
 -- | Euler tour representation
-data Tour a = Tour (STour a) (STour a)
+data Tour a = Tour (STour a) (STour a) deriving Show
 
 instance Ord a => Measured (Set a) (Tour a) where
     measure (Tour o _) = tmSet . measure $ o
@@ -97,6 +99,13 @@ father  :: Ord a
 father x (Tour o _) = case viewr . fst $ split (tmMember x) o of
     _ :> TourElem y -> Just y
     EmptyR -> Nothing
+
+valid :: Tour a -> Bool
+valid (Tour (viewl -> x :< xs) (viewr -> ys :> y)) 
+    | x == y = valid (Tour xs ys)
+    | otherwise = False
+valid (Tour (viewl -> EmptyL) (viewr -> EmptyR)) = True
+valid (Tour _ _) = False
     
 -- | extract a subtour from a tour delimited by a vertex, unsafe
 extract     :: Ord a 
@@ -121,10 +130,10 @@ reroot x e@(Tour o@(viewl -> TourElem x' :< _) r)
     | otherwise = let
         (o1,viewr -> o2 :> _) = split (tmMember x) o
         (viewl -> _ :< r1, r2) = split 
-            (flip (>) (tmPosition (measure o2)) . tmPosition) r
+            (flip (>) (tmPosition (measure o2) + 1) . tmPosition) r
         in Tour ((o2 <> o1) |> TourElem x) (TourElem x <| (r2 <> r1))
 
--- | create a tour representing a given tree 
+-- | create a tour representing a given tree, safe 
 fromTree    :: Ord a 
             => Tree a   -- ^ given tree
             -> Tour a   -- ^ corresponding tour
@@ -133,7 +142,7 @@ fromTree (Node  x ts) = g . mconcat $ map f ts where
             Tour (TourElem x <| o) (r |>  TourElem x)
         g (Tour o r) = Tour (o |> TourElem x) (TourElem x <| r)
 
--- | reify a tour into the corrispondent tree
+-- | reify a tour into the corrispondent tree, unsafe
 toTree      :: Ord a 
             =>  Tour a  -- ^ abstract tour
             ->  Tree a  -- ^ correstponding tree

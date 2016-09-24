@@ -2,7 +2,7 @@
 -- | Extensions to the Data.Tree module
 module HDynTs.Lib.Tree (
     -- * types
-    TreeEq (..),
+    sortTree,
     -- * quick check
     arbitraryTree,
     arbitraryForest,
@@ -24,14 +24,10 @@ import Data.List (sortBy, uncons)
 import Data.Ord (comparing)
 
 
--- | Tree equality equality up to children natural sorting 
-newtype TreeEq a = TreeEq (Tree a) 
 
-instance Ord a => Eq (TreeEq a) where
-    TreeEq (Node x xs) == TreeEq (Node y ys) = 
-        let sort = sortBy (comparing rootLabel)
-        in x == y && sort xs == sort ys
-
+sortTree :: Ord a => Tree a -> Tree a 
+sortTree t@(Node x []) = t
+sortTree (Node x xs) = Node x $ sortBy (comparing rootLabel) $ map sortTree xs
 --------------------------------------------------------------------------------
 -------------Quick Check--------------------------------------------------------
 --------------------------------------------------------------------------------
