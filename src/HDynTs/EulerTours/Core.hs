@@ -35,7 +35,7 @@ module HDynTs.EulerTours.Core (
 
 import Data.Set (Set, member,singleton)
 import Data.Monoid (Sum (Sum), (<>))
-import Data.Foldable (toList)
+import Data.Foldable (toList, Foldable)
 import Data.FingerTree (FingerTree, split, measure, Measured, viewl,viewr,  
     (<|) , (|>), ViewL ((:<),EmptyL), ViewR ((:>), EmptyR), fromList )
 import Data.Tree (Tree(Node))
@@ -67,6 +67,9 @@ type STour a = FingerTree (TourMonoid a) (TourElem a)
 
 -- | Euler tour representation
 data Tour a = Tour (STour a) (STour a)
+
+instance Foldable Tour where
+    foldr f x (Tour o _) = foldr f x $ map (\(TourElem x) -> x) $ toList o
 
 instance Ord a => Measured (TourMonoid a) (Tour a) where
     measure =  tmResetPosition . tourMonoid 
@@ -141,4 +144,5 @@ toTree (Tour (viewl -> TourElem x :< xs) _) = tree $ fromSTour (mkZ x) xs where
     fromSTour z (viewl -> TourElem x :< xs) = case focus <$> up z of
         Just ((==) x -> True) -> fromSTour (fromJust $ up z) xs
         _ -> fromSTour (insertC x z) xs  
+
 
