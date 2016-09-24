@@ -63,7 +63,7 @@ instance Ord a => Measured (TourMonoid a) (TourElem a) where
 type STour a = FingerTree (TourMonoid a) (TourElem a) 
 
 -- | Euler tour representation
-data Tour a = Tour (STour a) (STour a) deriving Show
+data Tour a = Tour (STour a) (STour a) deriving (Show, Eq)
 
 instance Ord a => Measured (Set a) (Tour a) where
     measure (Tour o _) = tmSet . measure $ o
@@ -100,7 +100,7 @@ father x (Tour o _) = case viewr . fst $ split (tmMember x) o of
     _ :> TourElem y -> Just y
     EmptyR -> Nothing
 
-valid :: Tour a -> Bool
+valid :: Ord a => Tour a -> Bool
 valid (Tour (viewl -> x :< xs) (viewr -> ys :> y)) 
     | x == y = valid (Tour xs ys)
     | otherwise = False

@@ -40,5 +40,5 @@ test-suite spec
   main-is:
       Spec.hs
   build-depends:
-      base    == 4.*, hspec == 2.*, HDynTs,QuickCheck, containers
+      base    == 4.*, hspec == 2.*, HDynTs,QuickCheck, containers, fingertree
 
