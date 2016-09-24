@@ -98,7 +98,7 @@ father x (Tour o _) = case viewr . fst $ split (tmMember x) o of
     _ :> TourElem y -> Just y
     EmptyR -> Nothing
     
--- | extract a subtour from a tour delimited by a vertex
+-- | extract a subtour from a tour delimited by a vertex, unsafe
 extract     :: Ord a 
             => a        -- ^ delimiting verte
             -> Tour a   -- ^ tour containing the vertex

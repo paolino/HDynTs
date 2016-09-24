@@ -17,14 +17,17 @@ cabal-version:       >=1.10
 
 library
     hs-source-dirs: src
-    exposed-modules:    HDynTs.Lib.Tree, HDynTs.Lib.FingerTree, HDynTs.Interface, HDynTs.EulerTours.Core, HDynTs.EulerTours.Forest 
-    build-depends:       base >=4.9 && <4.10, containers >=0.5 && <0.6, QuickCheck, mtl, fingertree, type-iso
+    exposed-modules:    HDynTs.Lib.Tree, HDynTs.Lib.FingerTree, 
+        HDynTs.Interface, HDynTs.EulerTours.Core, HDynTs.EulerTours.Forest 
+    build-depends:       base >=4.9 && <4.10, containers >=0.5 && <0.6, 
+        mtl, fingertree, type-iso, QuickCheck
     default-language:    Haskell2010
    
 executable hdynts
     hs-source-dirs: src
     main-is:    executables/Console.hs
-    build-depends:       base >=4.9 && <4.10, containers >=0.5 && <0.6, QuickCheck, mtl, fingertree, haskeline,type-iso
+    build-depends:  base >=4.9 && <4.10, containers >=0.5 && <0.6, 
+        QuickCheck, mtl, fingertree, haskeline,type-iso 
     default-language:    Haskell2010
 
 test-suite spec
@@ -37,5 +40,5 @@ test-suite spec
   main-is:
       Spec.hs
   build-depends:
-      base    == 4.*, hspec == 2.*, HDynTs,QuickCheck
+      base    == 4.*, hspec == 2.*, HDynTs,QuickCheck, containers
 
