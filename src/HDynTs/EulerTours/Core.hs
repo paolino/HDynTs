@@ -26,7 +26,9 @@ module HDynTs.EulerTours.Core (
     fromTree,
     toTree,
     -- * debug
-    valid
+    valid,
+    unsafeFromList,
+    toList
     )
     where
 
@@ -34,7 +36,7 @@ import Data.Set (Set, member,singleton)
 import Data.Monoid (Sum (Sum), (<>))
 import Data.Foldable (toList, Foldable)
 import Data.FingerTree (FingerTree, split, measure, Measured, viewl,viewr,  
-    (<|) , (|>), ViewL ((:<),EmptyL), ViewR ((:>), EmptyR), fromList )
+    (<|) , (|>), ViewL ((:<),EmptyL), ViewR ((:>), EmptyR), fromList, empty )
 import Data.Tree (Tree(Node))
 import Data.Maybe (fromJust)
 
@@ -151,5 +153,13 @@ toTree (Tour (viewl -> TourElem x :< xs) _) = tree $ fromSTour (mkZ x) xs where
     fromSTour z (viewl -> TourElem x :< xs) = case focus <$> up z of
         Just ((==) x -> True) -> fromSTour (fromJust $ up z) xs
         _ -> fromSTour (insertC x z) xs  
+
+
+-- | set the tour from a list, no checks on the tour being valid
+unsafeFromList :: Ord a => [a] -> Tour a 
+unsafeFromList [] = Tour empty empty
+unsafeFromList (x:xs) = let
+    Tour o r = unsafeFromList xs
+    in Tour (TourElem x <| o) (r |> TourElem x)
 
 
