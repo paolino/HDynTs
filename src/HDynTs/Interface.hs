@@ -38,4 +38,9 @@ class GraphInterface m t a where
         =>  GraphQuery a r b  -- ^ query 
         -> m (Either (GraphQueryExc a b) r) -- ^ result or failing
 
+-- | Inspectable structures can map an element to the tree containing it
+-- where they are the root (spanning tree)
+class Spanning t a where
+    spanning :: a -> t a -> Maybe (Tree a)
+    
     

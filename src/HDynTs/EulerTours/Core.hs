@@ -17,11 +17,6 @@
 module HDynTs.EulerTours.Core (
     -- * types
     Tour,
-    tourMonoid ,
-    -- * monoid
-    TourMonoid,
-    tmMember,
-    tmPosition,
     -- * operation 
     splice,
     father,
@@ -45,20 +40,20 @@ import HDynTs.Lib.Tree (insertC,focus,up, tree,mkZ)
 
 newtype TourElem a = TourElem a deriving (Show,Ord,Eq)
 
--- | The monoid for the fingertree representation of the tour
+--  The monoid for the fingertree representation of the tour
 newtype TourMonoid a = TourMonoid (Set a,Sum Int) deriving  (Monoid,Show)
 
--- | a predicate to test the presence of an elem in the tour
+-- a predicate to test the presence of an elem in the tour
 tmMember :: Ord a => a -> TourMonoid a -> Bool
 tmMember x (TourMonoid (v,_)) = x `member` v
 
--- | position of an element in the tour 
+-- position of an element in the tour 
 tmPosition :: TourMonoid a -> Int
 tmPosition (TourMonoid (_,Sum s)) = s
 
 --  set the position to one in the monoid
-tmResetPosition :: TourMonoid a -> TourMonoid a 
-tmResetPosition (TourMonoid (x,_)) = TourMonoid (x,1)
+tmSet :: TourMonoid a -> Set a
+tmSet (TourMonoid (x,_)) = x
 
 instance Ord a => Measured (TourMonoid a) (TourElem a) where
     measure (TourElem x) = TourMonoid (singleton x, 1)
@@ -68,11 +63,12 @@ type STour a = FingerTree (TourMonoid a) (TourElem a)
 -- | Euler tour representation
 data Tour a = Tour (STour a) (STour a)
 
+instance Ord a => Measured (Set a) (Tour a) where
+    measure (Tour o _) = tmSet . measure $ o
+
 instance Foldable Tour where
     foldr f x (Tour o _) = foldr f x $ map (\(TourElem x) -> x) $ toList o
 
-instance Ord a => Measured (TourMonoid a) (Tour a) where
-    measure =  tmResetPosition . tourMonoid 
 
 -- | Extract a valid monoid from a tour
 tourMonoid :: Ord a => Tour a -> TourMonoid a
@@ -115,7 +111,7 @@ extract c (Tour o r) = let
     (r21,r22) = split ((> l) . tmPosition) r2
     in (Tour o21 r21, Tour (o1' <> o22) (r1' <> r22))
 
--- | rotate a tour to represent a rerooting to a vertex
+-- | rotate a tour to represent a rerooting to a vertex, unsafe
 reroot  :: Ord a    
         => a        -- ^ new root
         -> Tour a   -- ^ old routed tour
@@ -124,7 +120,8 @@ reroot x e@(Tour o@(viewl -> TourElem x' :< _) r)
     | x == x' = e
     | otherwise = let
         (o1,viewr -> o2 :> _) = split (tmMember x) o
-        (viewl -> _ :< r1, r2) = split (flip (>) (tmPosition (measure o2)) . tmPosition) r
+        (viewl -> _ :< r1, r2) = split 
+            (flip (>) (tmPosition (measure o2)) . tmPosition) r
         in Tour ((o2 <> o1) |> TourElem x) (TourElem x <| (r2 <> r1))
 
 -- | create a tour representing a given tree 
@@ -132,7 +129,8 @@ fromTree    :: Ord a
             => Tree a   -- ^ given tree
             -> Tour a   -- ^ corresponding tour
 fromTree (Node  x ts) = g . mconcat $ map f ts where
-        f t = let Tour o r = fromTree t in Tour (TourElem x <| o) (r |>  TourElem x)
+        f t = let Tour o r = fromTree t in 
+            Tour (TourElem x <| o) (r |>  TourElem x)
         g (Tour o r) = Tour (o |> TourElem x) (TourElem x <| r)
 
 -- | reify a tour into the corrispondent tree

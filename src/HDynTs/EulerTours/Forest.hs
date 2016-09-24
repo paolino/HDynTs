@@ -20,39 +20,39 @@ import Control.Monad.State (gets,put, MonadState)
 import Data.Types.Isomorphic (Iso, Injective (to))
 import Control.Monad (guard)
 import Control.Applicative  ((<|>))
+import Data.Set (Set,member)
 
 
 import HDynTs.Lib.FingerTree (select)
-import HDynTs.EulerTours.Core (Tour, father, splice,extract, TourMonoid , 
-    tourMonoid, reroot,tmPosition, tmMember, fromTree,toTree)
+import HDynTs.EulerTours.Core (Tour, father, splice,extract ,
+        reroot, fromTree,toTree)
 import HDynTs.Interface (GraphInterface (gQuery), 
     GraphQueryT (GQConnected,GQLink, GQDelete), GraphQueryExc (..), 
-    GraphQuery (..))
+    GraphQuery (..), Spanning (..))
 
 
 -- | A forest of Tours
-newtype TourForest a = TourForest (FingerTree (TourMonoid a) (Tour a))
+newtype TourForest a = TourForest (FingerTree (Set a) (Tour a))
 
----------------------------------
------------ graph based interface -----
----------------------------------
+-------------------------------------------------------------------------------
+-------------------- Graph based interface ------------------------------------
+-------------------------------------------------------------------------------
 
 link :: Ord a => a -> a -> TourForest a 
     -> Either (GraphQueryExc a GQLink)  (TourForest a)
-link x y (TourForest h) = case select (tmMember x) h of
+link x y (TourForest h) = case select (member x) h of
         Nothing -> Left $ VertexNotFound x
-        Just (ex,h') -> case tmMember y $ tourMonoid ex of
+        Just (ex,h') -> case member y $ measure ex of
             True -> Left $ AlreadyConnectedVerteces x y
-            False -> case  select (tmMember y) h' of
+            False -> case  select (member y) h' of
                 Nothing -> Left $ VertexNotFound y
-                Just (ey,h'') -> 
-                    TourForest <$> return (splice (reroot x ex) y ey <| h'')
-
+                Just (ey,h'') -> Right . TourForest $
+                        (splice (reroot x ex) y ey) <| h''
 delete :: Ord a => a -> a -> TourForest a 
     -> Either (GraphQueryExc a GQDelete) (TourForest a)
-delete x y (TourForest h) = case select (tmMember x) h of
+delete x y (TourForest h) = case select (member x) h of
         Nothing -> Left $ VertexNotFound x
-        Just (ex,h') -> case  select (tmMember y) h  of
+        Just (ex,h') -> case  select (member y) h  of
             Nothing -> Left $ VertexNotFound y
             Just _ -> let 
                 check k h = (h,ex) <$ (father h ex >>= guard . (== k))
@@ -86,3 +86,7 @@ instance (Monad m, MonadState (TourForest a) m, Ord a)
     gQuery (Link x y) = gets (link x y) >>= catchM
     gQuery (Delete x y) = gets (delete x y) >>= catchM
     gQuery (Connected x y) = gets (connected x y) 
+
+instance Ord a => Spanning TourForest a where
+    spanning x (TourForest f) = fmap toTree . fmap (reroot x) . 
+        fmap fst . select (member x) $ f

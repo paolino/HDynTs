@@ -20,8 +20,8 @@ import HDynTs.Interface
 import HDynTs.EulerTours.Forest
 import Data.Char
 
-data Lang a =  L a a | D a a | C a a | N | S deriving Read
-doc = "l x y: link x and y verteces\nd x y: unlink x and y verteces\nc x y: check x and y are connected\nn: new random forest\ns: ouput the forest\nCTRL-d: exit\n"
+data Lang a =  L a a | D a a | C a a | N | S | I  a deriving Read
+doc = "l x y: link x and y verteces\nd x y: unlink x and y verteces\nc x y: check x and y are connected\nn: new random forest\ni x: spanning tree of x\ns: ouput the forest\nCTRL-d: exit\n"
 
 news :: (Injective [Tree Int] (t Int) , MonadIO m) => m (t Int)
 news = to . head <$> (liftIO . sample' $ arbitraryForest 2 4)
@@ -45,7 +45,7 @@ catchErrorM f g = either (f . errore . parseErrors) g
 
 run  :: forall t . (
         GraphInterface (StateT (t Int) (InputT IO)) t Int, 
-        Iso [Tree Int] (t Int)
+        Iso [Tree Int] (t Int),Spanning t Int
         ) 
         => Proxy (t Int) 
         -> IO ()
@@ -61,7 +61,7 @@ out x =  get >>= liftIO . mapM_ (putStrLn . drawTree . fmap show) .
 
 loop :: forall t . (
         GraphInterface (StateT (t Int) (InputT IO)) t Int, 
-        Iso [Tree Int] (t Int)
+        Iso [Tree Int] (t Int),Spanning t Int
         ) 
         => ContT () (StateT (t Int) (InputT IO)) ()
 loop = do
@@ -73,19 +73,28 @@ loop = do
             
         let u   Nothing = stop ()
             u   (Just (map toUpper -> r)) = do
-                    case reads r of 
-                        [(L x y,_)] -> lift $ gQuery (Link x y) >>= 
-                            catchErrorM  out return
-                        [(D x y,_)] -> lift $ gQuery (Delete x y) >>= 
-                            catchErrorM  out  return
-                        [(C x y,_)] -> lift $ gQuery (Connected  x y) >>= 
-                            catchErrorM  out
-                            (lift . outputStrLn . report . parseConnected x y )
-                        [(S,_)] -> lift $ out ""
-                        [(N,_)] -> lift (news >>= put) >> lift (out "")
-                        _ -> help
-                    lift . lift $ outputStrLn " ----------- ~~~~~~~~~~~~~ ----------"
-                    gl >>= u
+                case reads r of 
+                    [(L x y,_)] -> lift $ gQuery (Link x y) >>= 
+                        catchErrorM  out return
+                    [(D x y,_)] -> lift $ gQuery (Delete x y) >>= 
+                        catchErrorM  out  return
+                    [(C x y,_)] -> lift $ gQuery (Connected  x y) >>= 
+                        catchErrorM  out
+                        (lift . outputStrLn . report . parseConnected x y )
+                    [(S,_)] -> lift $ out ""
+                    [(N,_)] -> lift (news >>= put) >> lift (out "")
+                    [(I x,_)] -> lift $ do
+                         mr <- gets $ spanning x
+                         catchErrorM out 
+                            (liftIO . putStrLn . drawTree . fmap show) $ 
+                            case mr of
+                                Nothing -> Left (VertexNotFound x)
+                                Just t -> Right t
+                            
+                    _ -> help
+                lift . lift $ outputStrLn 
+                    " ----------- ~~~~~~~~~~~~~ ----------"
+                gl >>= u
         help >> gl >>= u
 
 

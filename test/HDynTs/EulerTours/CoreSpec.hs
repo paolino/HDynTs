@@ -22,8 +22,8 @@ spec = do
 eset :: Ord a => [a] -> [a]
 eset = map head . group . sort 
 
-test_splice :: Int -> Int -> Gen Bool
-test_splice n m = do
+test_splice :: Int -> () -> Gen Bool
+test_splice n () = do
     [x,y] <- map fromTree <$> arbitraryForest 2 n
     e <- elements $ toList y
     let s = splice x e y
