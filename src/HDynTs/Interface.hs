@@ -7,7 +7,7 @@
 -- | Classes for dynamic trees implementation. 
 module HDynTs.Interface where
 
-import Control.Monad.State (Monad, MonadState)
+import Control.Monad.State (Monad, MonadState, runState, State, evalState )
 import Data.Tree (Tree)
 
 -- | graph query distintion at type level
@@ -42,5 +42,21 @@ class GraphInterface m t a where
 -- where they are the root (spanning tree)
 class Spanning t a where
     spanning :: a -> t a -> Maybe (Tree a)
+
+-- | pure link 
+link :: GraphInterface (State (t a)) t a => a -> a -> t a -> Either (GraphQueryExc a GQLink) (t a)
+link x y t = let 
+    (v,t') = runState (gQuery (Link x y)) t
+    in const t <$> v
     
-    
+-- | pure delete 
+unlink :: GraphInterface (State (t a)) t a => a -> a -> t a -> Either (GraphQueryExc a GQDelete) (t a)
+unlink x y t = let 
+    (v,t') = runState (gQuery (Delete x y)) t
+    in const t <$> v
+
+-- | pure connected
+connected :: GraphInterface (State (t a)) t a => a -> a -> t a -> Either (GraphQueryExc a GQConnected) Bool
+connected x y t = evalState (gQuery (Connected x y)) t
+
+   

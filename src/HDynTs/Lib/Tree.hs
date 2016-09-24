@@ -24,10 +24,11 @@ import Data.List (sortBy, uncons)
 import Data.Ord (comparing)
 
 
-
+-- | sort the children of a tree based on their label
 sortTree :: Ord a => Tree a -> Tree a 
 sortTree t@(Node x []) = t
 sortTree (Node x xs) = Node x $ sortBy (comparing rootLabel) $ map sortTree xs
+
 --------------------------------------------------------------------------------
 -------------Quick Check--------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -49,13 +50,10 @@ relabel (Node _ cs) = do
 relabelForest :: [Tree a] -> [Tree Int] 
 relabelForest f = evalState (mapM relabel f) [1..]
 
-relabeller :: Tree a -> Tree Int
-relabeller t = evalState (relabel t) [1..]
-
 -- | create an arbitrary tree with at most m levels and m aperture
 arbitraryTree   :: Int  -- ^ m
                 -> Gen (Tree Int)
-arbitraryTree m = fmap relabeller (gTree m)
+arbitraryTree m = head <$> arbitraryForest 1 m 
 
 -- | create an arbitrary n-tree forest with at most m levels and m aperture
 arbitraryForest     :: Int -- ^ n

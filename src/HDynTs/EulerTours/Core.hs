@@ -102,6 +102,7 @@ father x (Tour o _) = case viewr . fst $ split (tmMember x) o of
     _ :> TourElem y -> Just y
     EmptyR -> Nothing
 
+-- | check validity of internal data
 valid :: Ord a => Tour a -> Bool
 valid (Tour (viewl -> x :< xs) (viewr -> ys :> y)) 
     | x == y = valid (Tour xs ys)
