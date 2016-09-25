@@ -47,9 +47,9 @@ link x y (TourForest h) = case select (member x) h of
                 Just (ey,h'') -> Right . TourForest $
                         (splice (reroot x ex) y ey) <| h''
 
-delete :: Ord a => a -> a -> TourForest a 
-    -> Either (Exception a (Modify DeleteT)) (TourForest a)
-delete x y (TourForest h) = case select (member y) h of
+cut :: Ord a => a -> a -> TourForest a 
+    -> Either (Exception a (Modify CutT)) (TourForest a)
+cut x y (TourForest h) = case select (member y) h of
         Nothing -> Left $ VertexNotFound y
         Just (reroot y -> e,h') -> case father x e >>= guard . (== y) of
                     Nothing -> Left $  OrException (AlreadySeparatedVerteces x y) (VertexNotFound x)
@@ -82,7 +82,7 @@ instance Ord a => Iso [Tree a] (TourForest a)
 
 instance Ord a => Interface TourForest a where
     modify (Link x y) = gets (link x y) >>= catchM
-    modify (Delete x y) = gets (delete x y) >>= catchM
+    modify (Cut x y) = gets (cut x y) >>= catchM
     query (Spanning x) = spanning x 
     query (Path x y) = fpath x y
 
