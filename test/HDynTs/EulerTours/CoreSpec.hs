@@ -6,8 +6,8 @@ import Test.QuickCheck
 import HDynTs.Lib.Tree
 import HDynTs.EulerTours.Core
 
-import Data.Foldable
-import Data.Tree
+import Data.Foldable (toList)
+import Data.Tree (Tree (..))
 import Data.FingerTree (measure)
 import qualified Data.Set as S
 
@@ -22,6 +22,8 @@ spec = do
         fromTree_valid 8
     it "identity from/to tree" $ property $
         fromTree_toTree 8
+    it "identity from/to list" $ property $
+        fromList_toList 8
 
   describe "splice" $ do
     it "valid internal operation" $ property $
@@ -119,4 +121,9 @@ splice_extract n () = do
     e <- pick y
     let     (x',y') = extract (rootLabel tx) $ splice x e y
     return $ x =&&= x' && y =&&= y'
+
+fromList_toList :: Int -> () -> Gen Bool
+fromList_toList n () = do
+    t <- fromTree <$> arbitraryTree n
+    return $ Just t == fromList (toList t)
 

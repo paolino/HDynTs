@@ -16,7 +16,7 @@
 
 module HDynTs.EulerTours.Core (
     -- * types
-    Tour,
+    Tour ,
     -- * operation 
     splice,
     father,
@@ -25,20 +25,23 @@ module HDynTs.EulerTours.Core (
     -- * conversion
     fromTree,
     toTree,
-    -- * debug
-    valid,
     unsafeFromList,
-    toList
+    fromList,
+    toList,
+    -- * debug
+    valid
     )
     where
 
 import Data.Set (Set, member,singleton)
+import qualified Data.Set as S
 import Data.Monoid (Sum (Sum), (<>))
 import Data.Foldable (toList, Foldable)
 import Data.FingerTree (FingerTree, split, measure, Measured, viewl,viewr,  
-    (<|) , (|>), ViewL ((:<),EmptyL), ViewR ((:>), EmptyR), fromList, empty )
+    (<|) , (|>), ViewL ((:<),EmptyL), ViewR ((:>), EmptyR),  empty )
 import Data.Tree (Tree(Node))
 import Data.Maybe (fromJust)
+import Control.Monad (guard)
 
 import HDynTs.Lib.Tree (insertC,focus,up, tree,mkZ)
 
@@ -109,7 +112,7 @@ valid (Tour (viewl -> x :< xs) (viewr -> ys :> y))
     | otherwise = False
 valid (Tour (viewl -> EmptyL) (viewr -> EmptyR)) = True
 valid (Tour _ _) = False
-    
+
 -- | extract a subtour from a tour delimited by a vertex, unsafe
 extract     :: Ord a 
             => a        -- ^ delimiting verte
@@ -155,6 +158,23 @@ toTree (Tour (viewl -> TourElem x :< xs) _) = tree $ fromSTour (mkZ x) xs where
         Just ((==) x -> True) -> fromSTour (fromJust $ up z) xs
         _ -> fromSTour (insertC x z) xs  
 
+-- check invariants for tours as lists
+isEuler :: Ord a => [a] -> Bool
+isEuler = isEuler' mempty mempty . (zip <*> tail) where
+    isEuler' fs _ [] 
+        | S.null fs = True -- children closed at the end
+        | otherwise = False
+    isEuler' fs gs ((x,x'):xs) 
+        | x == x' = False -- must change
+        | x' `member` gs = False -- reopening a children
+        | (x',x) `member` fs = isEuler' (S.delete (x',x) fs) (S.insert x gs) xs 
+            -- closing a children
+        | otherwise = isEuler' (S.insert (x,x') fs) gs xs --opening a children
+    
+
+-- | safely create a Your from a list, it checks the list is a correct tour
+fromList :: Ord a => [a] -> Maybe (Tour a)
+fromList xs = guard (isEuler xs) >> return (unsafeFromList xs)
 
 -- | set the tour from a list, no checks on the tour being valid
 unsafeFromList :: Ord a => [a] -> Tour a 
