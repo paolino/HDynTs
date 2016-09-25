@@ -16,12 +16,14 @@
 
 module HDynTs.EulerTours.Core (
     -- * types
-    Tour ,
+    Tour (..),
     -- * operation 
     splice,
-    father,
     extract,
     reroot, 
+    -- * query
+    path,
+    father,
     -- * conversion
     fromTree,
     toTree,
@@ -182,5 +184,14 @@ unsafeFromList [] = Tour empty empty
 unsafeFromList (x:xs) = let
     Tour o r = unsafeFromList xs
     in Tour (TourElem x <| o) (r |> TourElem x)
+
+-- | compute the path between 2 elements of the tour
+path :: Ord a => a -> a -> Tour a -> [a]
+path x y (reroot x -> Tour o r) =  let
+    collect f (viewr -> EmptyR) = f y
+    collect f (viewr -> rs:> TourElem h) = collect ((h:) . f) z where
+        (z,_) = split (tmMember h) rs
+    (o1,_) = split (tmMember y) o
+    in collect return o1
 
 

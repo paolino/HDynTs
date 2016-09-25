@@ -6,8 +6,8 @@
 
 import Data.List
 import Data.Tree hiding (Forest)
-import Control.Monad.State
-import System.Console.Haskeline
+import Control.Monad.State hiding (modify)
+import System.Console.Haskeline hiding (Exception)
 import Control.Monad.Cont
 import Data.Foldable
 import Test.QuickCheck (sample')
@@ -20,32 +20,33 @@ import HDynTs.Interface
 import HDynTs.EulerTours.Forest
 import Data.Char
 
-data Lang a =  L a a | D a a | C a a | N | S | I  a deriving Read
-doc = "l x y: link x and y verteces\nd x y: unlink x and y verteces\nc x y: check x and y are connected\nn: new random forest\ni x: spanning tree of x\ns: ouput the forest\nCTRL-d: exit\n"
+data Lang a =  L a a | D a a | P a a | N | S | I a deriving Read
+doc = "l x y: link x and y verteces\nd x y: unlink x and y verteces\np x y : compute path between x and y\nn: new random forest\ni x: spanning tree of x\ns: ouput the forest\nCTRL-d: exit\n"
 
 news :: (Injective [Tree Int] (t Int) , MonadIO m) => m (t Int)
 news = to . head <$> (liftIO . sample' $ arbitraryForest 2 4)
 
 errore x = "ERROR: " ++ x ++ "\n"
-parseErrors :: Show a => GraphQueryExc a b -> String
+parseErrors :: Show a => Exception a b -> String
 parseErrors (AlreadySeparatedVerteces x y) = 
     "verteces " ++ show x ++ " " ++ show y ++ " are not linked"
 parseErrors (AlreadyConnectedVerteces x y) = 
     "verteces " ++ show x ++ " " ++ show y ++ " are in the same graph" 
 parseErrors (VertexNotFound x) = 
     "vertex " ++ show x ++ " was not found in the forest"
+parseErrors (OrException e1 e2) = parseErrors e1 ++ " or " ++ parseErrors e2
+parseErrors (NotConnectedVerteces x y) = 
+    "verteces " ++ show x ++ " " ++ show y ++ " are in different graphs" 
 
 report x = "RESULT: " ++ x ++ "\n" 
-parseConnected x y t = "verteces " ++ show x ++ " " ++ show y ++ " are " 
-    ++ (if t then "" else "not ") ++ "connected"
 
 catchErrorM :: (MonadIO m ,Show a) => (String -> m ()) -> (r -> m ()) 
-    -> Either (GraphQueryExc a b) r -> m ()
+    -> Either (Exception a b) r -> m ()
 catchErrorM f g = either (f . errore . parseErrors) g 
 
 run  :: forall t . (Show (t Int),
-        GraphInterface (StateT (t Int) (InputT IO)) t Int, 
-        Iso [Tree Int] (t Int),Spanning t Int
+        Interface t Int, 
+        Iso [Tree Int] (t Int)
         ) 
         => Proxy (t Int) 
         -> IO ()
@@ -64,10 +65,11 @@ out x =     do
                 lift . outputStrLn $ x
 
 loop :: forall t . (Show (t Int),
-        GraphInterface (StateT (t Int) (InputT IO)) t Int, 
-        Iso [Tree Int] (t Int),Spanning t Int
+        Interface t Int, 
+        Iso [Tree Int] (t Int)
         ) 
         => ContT () (StateT (t Int) (InputT IO)) ()
+
 loop = do
     callCC $ \stop -> do
         let gl = do 
@@ -78,22 +80,18 @@ loop = do
         let u   Nothing = stop ()
             u   (Just (map toUpper -> r)) = do
                 case reads r of 
-                    [(L x y,_)] -> lift $ gQuery (Link x y) >>= 
+                    [(L x y,_)] -> lift $ modify (Link x y) >>= 
                         catchErrorM  out return
-                    [(D x y,_)] -> lift $ gQuery (Delete x y) >>= 
+                    [(D x y,_)] -> lift $ modify (Delete x y) >>= 
                         catchErrorM  out  return
-                    [(C x y,_)] -> lift $ gQuery (Connected  x y) >>= 
+                    [(P x y,_)] -> lift $ get >>= return . query (Path x y) >>= 
                         catchErrorM  out
-                        (lift . outputStrLn . report . parseConnected x y )
+                        (lift . outputStrLn . report . show)
                     [(S,_)] -> lift $ out ""
                     [(N,_)] -> lift (news >>= put) >> lift (out "")
-                    [(I x,_)] -> lift $ do
-                         mr <- gets $ spanning x
+                    [(I x,_)] -> lift $ get >>= return . query (Spanning x) >>= 
                          catchErrorM out 
-                            (liftIO . putStrLn . drawTree . fmap show) $ 
-                            case mr of
-                                Nothing -> Left (VertexNotFound x)
-                                Just t -> Right t
+                            (liftIO . putStrLn . drawTree . fmap show)  
                             
                     _ -> help
                 lift . lift $ outputStrLn 
@@ -104,4 +102,3 @@ loop = do
 
         
 main = run (Proxy :: Proxy (TourForest Int))
-

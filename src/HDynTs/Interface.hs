@@ -1,62 +1,73 @@
 {-# language GADTs#-}
+{-# language TypeFamilies#-}
 {-# language DataKinds#-}
 {-# language MultiParamTypeClasses#-}
 {-# language FunctionalDependencies#-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language TypeSynonymInstances #-}
 
 -- | Classes for dynamic trees implementation. 
 module HDynTs.Interface where
 
 import Control.Monad.State (Monad, MonadState, runState, State, evalState )
 import Data.Tree (Tree)
+import Data.Maybe
 
--- | graph query distintion at type level
-data GraphQueryT = GQLink | GQDelete | GQConnected
+
+
+-- | graph modification distintion at type level
+data Modify (a :: Modification) 
+data Query (a :: Queries)
+data Modification = LinkT | DeleteT
+data Queries = PathT | SpanningT
 
 -- | query language
-data GraphQuery a r b where
+data Lang a b r where
     -- | ask to link two vertices
-    Link :: a -> a -> GraphQuery a () GQLink
+    Link :: a -> a -> Lang a (Modify LinkT) ()
     -- | ask to remove the link between two verteces
-    Delete :: a -> a -> GraphQuery a () GQDelete
-    -- | ask if two verteces are connected 
-    Connected :: a -> a -> GraphQuery a Bool GQConnected
+    Delete :: a -> a -> Lang a (Modify DeleteT) ()
+    -- | ask the path between 2 verteces 
+    Path :: a -> a -> Lang a (Query PathT) [a]
+    -- | aske the spanning tree from a vertex
+    Spanning :: a -> Lang a (Query SpanningT) (Tree a)
 
--- | query language answer exceptions
-data GraphQueryExc a b where
-    -- | a vertex was not found
-    VertexNotFound :: a -> GraphQueryExc a b
-    -- | tried  to link two verteces already inside a graph, loop introduction
-    AlreadyConnectedVerteces :: a -> a -> GraphQueryExc a GQLink
+data Exception a b where
+        -- | tried  to link two verteces already inside a graph, loop introduction
+    AlreadyConnectedVerteces :: a -> a -> Exception a (Modify LinkT)
     -- | trying to unlink two verteces not linked
-    AlreadySeparatedVerteces :: a -> a -> GraphQueryExc a GQDelete
+    AlreadySeparatedVerteces :: a -> a -> Exception a (Modify DeleteT)
+    -- | a vertex was not found
+    VertexNotFound :: a -> Exception a b 
+    -- | 
+    NotConnectedVerteces :: a -> a -> Exception a (Query PathT)
+    -- |
+    OrException :: Exception a b  -> Exception a b -> Exception a b
+
 
 -- | graph query interface for implementations
-class GraphInterface m t a where
+class Interface t a where
     -- | answer to the queries modifying the structure in the state 
-    gQuery  :: (Monad m, MonadState (t a) m)  
-        =>  GraphQuery a r b  -- ^ query 
-        -> m (Either (GraphQueryExc a b) r) -- ^ result or failing
-
+    modify  :: (Monad m, MonadState (t a) m)  
+        =>  Lang a (Modify c) ()  -- ^ query 
+        -> m (Either (Exception a (Modify c)) ()) -- ^ result or failing
+    query :: Lang a (Query c) r -> t a -> Either (Exception a (Query c)) r
 -- | Inspectable structures can map an element to the tree containing it
 -- where they are the root (spanning tree)
 class Spanning t a where
     spanning :: a -> t a -> Maybe (Tree a)
 
+
 -- | pure link 
-link :: GraphInterface (State (t a)) t a => a -> a -> t a -> Either (GraphQueryExc a GQLink) (t a)
+link :: Interface t a => a -> a -> t a -> Either (Exception a (Modify LinkT)) (t a)
 link x y t = let 
-    (v,t') = runState (gQuery (Link x y)) t
+    (v,t') = runState (modify (Link x y)) t
     in const t <$> v
     
 -- | pure delete 
-unlink :: GraphInterface (State (t a)) t a => a -> a -> t a -> Either (GraphQueryExc a GQDelete) (t a)
+unlink :: Interface  t a => a -> a -> t a -> Either (Exception a (Modify DeleteT)) (t a)
 unlink x y t = let 
-    (v,t') = runState (gQuery (Delete x y)) t
+    (v,t') = runState (modify (Delete x y)) t
     in const t <$> v
 
--- | pure connected
-connected :: GraphInterface (State (t a)) t a => a -> a -> t a -> Either (GraphQueryExc a GQConnected) Bool
-connected x y t = evalState (gQuery (Connected x y)) t
-
-   
