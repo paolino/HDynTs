@@ -7,12 +7,47 @@
 {-# language FlexibleInstances #-}
 {-# language TypeSynonymInstances #-}
 
--- | Classes for dynamic trees implementation. 
-module HDynTs.Interface where
+{-|
+Module      : HDynTs.Interface
+Description : Common interface for dynamic trees algorithms
+Copyright   : (c) Paolo Veronelli, 2016
+License     : BSD
+Maintainer  : paolo.veronelli@gmail.com
+Stability   : experimental
+
+= Classes for dynamic trees algorithms. 
+
+== This module defines the /interface/ for algorithms. 
+
+All algorithms can be used via the 'Interpreter' class. 
+
+'Path' query should produce the same answer for all, given the same initial state 
+and the same sequence of modifications.
+
+'Spanning' query should produce the same answer up-to children reordering
+
+-}
+
+module HDynTs.Interface (
+    -- * Types
+    Modify,
+    Query,
+    -- * Promoted types
+    Modification (..),
+    Queries (..) ,
+    -- * Language
+    Lang (..),
+    Exception (..),
+    Interpreter (..),
+    -- * Helpers
+    pureModify
+    )
+    
+
+where
 
 import Control.Monad.State (Monad, MonadState, runState, State, evalState )
 import Data.Tree (Tree)
-import Data.Maybe
 
 
 -- | modification tagger
@@ -54,15 +89,16 @@ data Exception a b where
 class Interpreter t a where
     -- | answer to the queries modifying the structure in the state 
     modify  :: (Monad m, MonadState (t a) m)  
-            => Lang a (Modify c) ()  -- ^ modification
-            -> m (Either (Exception a (Modify c)) ()) -- ^ () or failing
+            => Lang a (Modify c) ()  
+            -> m (Either (Exception a (Modify c)) ()) 
     -- | queries are pure functions from state
-    query   :: Lang a (Query c) r  -- ^ query
-            -> t a          -- ^ state
-            -> Either (Exception a (Query c)) r -- ^ result or failing
+    query   :: Lang a (Query c) r  
+            -> t a          
+            -> Either (Exception a (Query c)) r 
 
--- | pure modifications
--- to (pureModify (Link 1 2) (to [Node 1 [], Node [2]])) =&= [Node 2 [Node [1]]]
+-- | Pure modifications. Let you use the 'modify' function outside the 'MonadState' 
+--
+-- prop> to (pureModify (Link 1 2) (to [Node 1 [], Node [2]])) =&= [Node 2 [Node [1]]]
 pureModify  :: Interpreter t a 
             => Lang a (Modify c) () -- ^ modification
             -> t a -- ^ state

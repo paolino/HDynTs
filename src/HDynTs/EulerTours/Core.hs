@@ -8,11 +8,63 @@
 {-# language GADTs#-}
 {-# language FlexibleContexts#-}
 {-# language UndecidableInstances #-}
+{-|
+Module      : HDynTs.EulerTours.Core
+Description : Core functionality of Euler Tours 
+Copyright   : (c) Paolo Veronelli, 2016
+License     : BSD
+Maintainer  : paolo.veronelli@gmail.com
+Stability   : experimental
 
--- | Euler Tour core functionalities. A Tour is a FingerTree of the elements,
--- coupled with its reverse. All modifications are sublinear in the number of
--- elements. The TourMonoid is partly exported to permit composition with 
--- above structures.
+= Core functionalities for using Euler Tours. 
+
+== Intro
+
+Euler tours algorithm is developed in two modules. 
+This and "HDynTs.EulerTours.Forest".
+
+The separation is possible as each tour is expressing a full tree. This module 
+is about one tour or one tree.
+
+The 'Tour' values support two core functionalities, 'splice' and 'extract', the
+primitive operations for link and cut at a higher level.
+
+To support sublinear operations we are using a couple of 'FingerTree' 
+to hold the tour and its reverse and the 'Monoid' is a composition of 
+@'Set' a@ and @'Sum' Int@. 
+
+The Set monoid let us split by name, while the Sum let us split by position.
+
+== Use
+
+You can create a Tour by conversion from a 'Tree' with 'fromTree' which is safe 
+as they are isomorphic, or you can use 'fromList' ('unsafeFromList') but 
+obviously you have to feed a correct tour.
+
+>>> Just tl = fromList "abacdcaefgfhfea"
+>>> tt = fromTree $ Node 'y' [Node 'x' [],Node 'z' []]
+
+You can go back with 'toList' from 'Data.Foldable' and 'toTree'.
+
+'splice' and 'extract' are kind of inverse each other so
+
+>>> let (t1,t2) = extract 'y' (splice tt 'd' tl) in t1 == tt &&  t2 == tl
+
+is evaluating to 'True'. This is possible as the Eq instance for Tour is taking 
+care of reordering children.
+== Unsafeness 
+
+This module is mostly unsafe, it crashes with partial functions or, worse,
+functions have an undefined behavior when feeded with an element not 
+present in the tour.
+
+If you need to check the presence of an element, check membership with 
+'measure' on the 'Tour'.
+
+>>> x `member` measure t 
+
+-}
+
 
 module HDynTs.EulerTours.Core (
     -- * types
@@ -31,7 +83,10 @@ module HDynTs.EulerTours.Core (
     fromList,
     toList,
     -- * debug
-    valid
+    valid,
+    -- * re-exports
+    (<>),
+    Tree(..)
     )
     where
 
@@ -44,6 +99,7 @@ import Data.FingerTree (FingerTree, split, measure, Measured, viewl,viewr,
 import Data.Tree (Tree(Node))
 import Data.Maybe (fromJust)
 import Control.Monad (guard)
+import HDynTs.Lib.Tree (SortedTree (..))
 
 import HDynTs.Lib.Tree (insertC,focus,up, tree,mkZ)
 
@@ -70,7 +126,7 @@ instance Ord a => Measured (TourMonoid a) (TourElem a) where
 type STour a = FingerTree (TourMonoid a) (TourElem a) 
 
 -- | Euler tour representation
-data Tour a = Tour (STour a) (STour a) deriving (Show, Eq)
+data Tour a = Tour (STour a) (STour a) deriving (Show)
 
 instance Ord a => Measured (Set a) (Tour a) where
     measure (Tour o _) = tmSet . measure $ o
@@ -78,6 +134,11 @@ instance Ord a => Measured (Set a) (Tour a) where
 instance Foldable Tour where
     foldr f x (Tour o _) = foldr f x $ map (\(TourElem x) -> x) $ toList o
 
+instance Ord a => Eq (Tour a) where 
+    x@(Tour (viewl -> TourElem h :< _) _) == y = 
+        SortedTree (toTree x) == SortedTree (toTree $ reroot h y)
+    x@(Tour (viewl -> EmptyL) _) == y@(Tour (viewl -> EmptyL) _) = True
+    _ == _ = False
 
 -- | Extract a valid monoid from a tour
 tourMonoid :: Ord a => Tour a -> TourMonoid a
@@ -98,7 +159,9 @@ splice (Tour ot rt) c (Tour o r) = let
     (r1,r2) = split (flip (>) (tmPosition (measure o2)) . tmPosition) r
     in Tour (o1 <> (wc <| ot) <> o2) (r1 <> (rt |> wc) <> r2)
 
--- | find the father of a vertex in a tour
+{-| Find the father of a vertex in a tour. 
+
+-}
 father  :: Ord a 
         => a        -- ^ child
         -> Tour a   -- ^ tour containing the child
@@ -193,5 +256,6 @@ path x y (reroot x -> Tour o r) =  let
         (z,_) = split (tmMember h) rs
     (o1,_) = split (tmMember y) o
     in collect return o1
+
 
 

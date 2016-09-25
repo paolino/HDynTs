@@ -2,7 +2,7 @@
 -- | Extensions to the Data.Tree module
 module HDynTs.Lib.Tree (
     -- * types
-    sortTree,
+    SortedTree(..),
     -- * quick check
     arbitraryTree,
     arbitraryForest,
@@ -29,6 +29,10 @@ sortTree :: Ord a => Tree a -> Tree a
 sortTree t@(Node x []) = t
 sortTree (Node x xs) = Node x $ sortBy (comparing rootLabel) $ map sortTree xs
 
+newtype SortedTree a = SortedTree (Tree a)
+
+instance Ord a => Eq (SortedTree a) where
+    SortedTree x == SortedTree y = sortTree x == sortTree y
 --------------------------------------------------------------------------------
 -------------Quick Check--------------------------------------------------------
 --------------------------------------------------------------------------------

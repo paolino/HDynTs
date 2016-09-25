@@ -48,11 +48,6 @@ spec = do
     it "extract . splice == id" $property $ 
         splice_extract 8 
   
-(=&=) :: Ord a => Tree a -> Tree a -> Bool    
-x =&= y = sortTree x == sortTree y
-
-(=&&=) :: Ord a => Tour a -> Tour a -> Bool
-x =&&= y = toTree x =&= toTree y
 
 pick :: Tour a -> Gen a
 pick = elements . toList
@@ -63,7 +58,7 @@ fromTree_valid n () = valid <$> fromTree <$> arbitraryTree n
 fromTree_toTree :: Int -> () -> Gen Bool
 fromTree_toTree n () = do
     t <- arbitraryTree n
-    return $ t =&= toTree (fromTree t)
+    return $ SortedTree t == SortedTree (toTree (fromTree t))
 
 splice_valid :: Int -> () -> Gen Bool
 splice_valid n () =  do
@@ -96,7 +91,7 @@ reroot_back n () = do
     x'@(Node h _) <- arbitraryTree n
     let x = fromTree x'
     e <- pick x
-    return $ reroot h (reroot e x) =&&= x
+    return $ reroot h (reroot e x) == x
 
 extract_head :: Int -> () -> Gen Bool
 extract_head n () = do   
@@ -120,7 +115,7 @@ splice_extract n () = do
     let [x,y] = map fromTree ts
     e <- pick y
     let     (x',y') = extract (rootLabel tx) $ splice x e y
-    return $ x =&&= x' && y =&&= y'
+    return $ x == x' && y == y'
 
 fromList_toList :: Int -> () -> Gen Bool
 fromList_toList n () = do
