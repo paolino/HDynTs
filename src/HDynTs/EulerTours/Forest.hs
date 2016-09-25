@@ -54,9 +54,11 @@ cut x y (TourForest h) = case select (member y) h of
         Nothing -> Left $ VertexNotFound y
         Just (e,h') -> case (do
                 guard $ x `member` measure e 
-                father x (reroot y e) >>= guard . (== y)) of
+                let e' = reroot y e
+                father x e' >>= guard . (== y)
+                return e') of
                     Nothing -> Left $  OrException (AlreadySeparatedVerteces x y) (VertexNotFound x)
-                    Just () -> let (e1,e2) = extract x e in 
+                    Just e -> let (e1,e2) = extract x e in 
                         TourForest <$> (Right $ e1 <| e2 <| h')
 
 
