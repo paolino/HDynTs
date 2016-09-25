@@ -26,7 +26,8 @@ import Data.Set (Set,member)
 import HDynTs.Lib.FingerTree (select)
 import HDynTs.EulerTours.Core (Tour, father, splice,extract ,
         reroot, fromTree,toTree, path)
-import HDynTs.Interface (Interface (modify,query),Modification (..), Queries (..), Exception (..), Modify , Query, Lang (..) ) 
+import HDynTs.Interface (Interpreter (modify,query),Modification (..), 
+    Queries (..), Exception (..), Modify , Query, Lang (..) ) 
 
 
 -- | A forest of Tours
@@ -82,9 +83,9 @@ instance Ord a => Injective [Tree a] (TourForest a) where
     to  = TourForest . fromList . map fromTree 
 instance Ord a => Iso [Tree a] (TourForest a)
 
-instance Ord a => Interface TourForest a where
-    modify (Link x y) = gets (link x y) >>= catchM
-    modify (Cut x y) = gets (cut x y) >>= catchM
-    query (Spanning x) = spanning x 
-    query (Path x y) = fpath x y
+instance Ord a => Interpreter TourForest a where
+    modify (Link x y)   = gets (link x y) >>= catchM
+    modify (Cut x y)    = gets (cut x y) >>= catchM
+    query (Spanning x)  = spanning x 
+    query (Path x y)    = fpath x y
 

@@ -16,7 +16,7 @@
 
 module HDynTs.EulerTours.Core (
     -- * types
-    Tour (..),
+    Tour ,
     -- * operation 
     splice,
     extract,
