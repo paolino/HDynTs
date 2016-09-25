@@ -51,7 +51,9 @@ cut :: Ord a => a -> a -> TourForest a
     -> Either (Exception a (Modify CutT)) (TourForest a)
 cut x y (TourForest h) = case select (member y) h of
         Nothing -> Left $ VertexNotFound y
-        Just (reroot y -> e,h') -> case father x e >>= guard . (== y) of
+        Just (e,h') -> case (do
+                guard $ x `member` measure e 
+                father x (reroot y e) >>= guard . (== y)) of
                     Nothing -> Left $  OrException (AlreadySeparatedVerteces x y) (VertexNotFound x)
                     Just () -> let (e1,e2) = extract x e in 
                         TourForest <$> (Right $ e1 <| e2 <| h')
