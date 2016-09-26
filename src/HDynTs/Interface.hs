@@ -21,8 +21,8 @@ Stability   : experimental
 
 All algorithms can be used via the 'Interpreter' class. 
 
-'Path' query should produce the same answer for all, given the same initial state 
-and the same sequence of modifications.
+'Path' query should produce the same answer for all, given the same initial 
+state and the same sequence of modifications.
 
 'Spanning' query should produce the same answer up-to children reordering
 
@@ -96,9 +96,11 @@ class Interpreter t a where
             -> t a          
             -> Either (Exception a (Query c)) r 
 
--- | Pure modifications. Let you use the 'modify' function outside the 'MonadState' 
---
--- prop> to (pureModify (Link 1 2) (to [Node 1 [], Node [2]])) =&= [Node 2 [Node [1]]]
+{- | 
+Pure modifications. Let you use the 'modify' function outside the 'MonadState' 
+prop> to (pureModify (Link 1 2) (to [Node 1 [], Node [2]])) 
+    =&= [Node 2 [Node [1]]]
+-}
 pureModify  :: Interpreter t a 
             => Lang a (Modify c) () -- ^ modification
             -> t a -- ^ state

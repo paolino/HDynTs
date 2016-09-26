@@ -29,6 +29,7 @@ sortTree :: Ord a => Tree a -> Tree a
 sortTree t@(Node x []) = t
 sortTree (Node x xs) = Node x $ sortBy (comparing rootLabel) $ map sortTree xs
 
+-- | Tag for a Tree to gain access to a up-to-children re-sorting Eq instance
 newtype SortedTree a = SortedTree (Tree a)
 
 instance Ord a => Eq (SortedTree a) where

@@ -52,6 +52,8 @@ You can go back with 'toList' from 'Data.Foldable' and 'toTree'.
 
 is evaluating to 'True'. This is possible as the Eq instance for Tour is taking 
 care of reordering children.
+
+
 == Unsafeness 
 
 This module is mostly unsafe, it crashes with partial functions or, worse,
@@ -60,6 +62,9 @@ present in the tour.
 
 If you need to check the presence of an element, check membership with 
 'measure' on the 'Tour'.
+
+Use 'HDynTs.Interface' with the instances in 'HDynTs.EulerTours.Forest'
+for a safe access to a forest of tours.
 
 >>> x `member` measure t 
 
