@@ -6,9 +6,28 @@
 
 {-# language UndecidableInstances #-}
 
--- | Managing a forest of Tours. A fingertree is holding the forest of Tours.
--- Selecting a Tour is sublinear in the number of verteces. The membership part
--- of the monoid is taken from the underlying fingertree for Tour.
+{-|
+Module      : HDynTs.EulerTours.Forest
+Description : Forest functionality for Euler Tours 
+Copyright   : (c) Paolo Veronelli, 2016
+License     : BSD
+Maintainer  : paolo.veronelli@gmail.com
+Stability   : experimental
+
+= Forest functionalities for Euler Tours. 
+
+
+A fingertree is holding the forest of 'Tour's. 
+
+The 'measure' of the leaves are the 'Set' of the elements each of them contain, 
+so the fingertree is used as a select the tour by vertex, which is necessary 
+for all queries / modifications. 
+
+Modified tours are inserted in front of the sequence, which makes the algorithm
+faster if there is a uneven frequency distribution for modifications.
+
+
+-}
 module HDynTs.EulerTours.Forest (TourForest) where
 
 import Data.Monoid (Sum (..))

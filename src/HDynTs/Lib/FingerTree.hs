@@ -4,6 +4,15 @@ module HDynTs.Lib.FingerTree where
 import Data.FingerTree
 import Data.Monoid ((<>))
 
+{-|
+Module      : HDynTs.Lib.FingerTree
+Description : Additional functionality for 'Data.FingerTree'
+Copyright   : (c) Paolo Veronelli, 2016
+License     : BSD
+Maintainer  : paolo.veronelli@gmail.com
+Stability   : experimental
+-}
+
 -- | extract an elem from a fingertree, giving out the element and the 
 -- orphaned fingertree. It fails when the element is missing
 select   :: Measured m a 

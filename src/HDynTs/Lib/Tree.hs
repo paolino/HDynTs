@@ -1,5 +1,14 @@
 {-# language ViewPatterns, DeriveFunctor, NoMonomorphismRestriction #-}
--- | Extensions to the Data.Tree module
+
+{-|
+Module      : HDynTs.Lib.Tree
+Description : Additional functionality for Data.Tree
+Copyright   : (c) Paolo Veronelli, 2016
+License     : BSD
+Maintainer  : paolo.veronelli@gmail.com
+Stability   : experimental
+-}
+
 module HDynTs.Lib.Tree (
     -- * types
     SortedTree(..),
@@ -12,7 +21,9 @@ module HDynTs.Lib.Tree (
     focus,
     up,
     insertC,
-    tree
+    tree,
+    -- * drawing
+    drawTreeU 
     )
     where
 
@@ -100,4 +111,17 @@ tree = (\(Z t _) -> t) . top where
     top z = maybe z top $ up z
 
 
+-- | Neat 2-dimensional drawing of a tree, using Unicode
+drawTreeU :: Tree String -> String
+drawTreeU  = unlines . draw
 
+draw :: Tree String -> [String]
+draw (Node x ts0) = x : drawSubTrees ts0
+  where
+    drawSubTrees [] = []
+    drawSubTrees [t] =
+        shift "\x2514\x2500" "  " (draw t)
+    drawSubTrees (t:ts) =
+        shift "\x251c\x2500" "\x2502 " (draw t) ++ drawSubTrees ts
+
+    shift first other = zipWith (++) (first : repeat other)

@@ -1,8 +1,15 @@
 
-{-# language MultiParamTypeClasses, TemplateHaskell, ScopedTypeVariables, 
-    ViewPatterns, FlexibleInstances,DeriveFunctor, StandaloneDeriving, 
-    GADTs,
-    NoMonomorphismRestriction, FlexibleContexts, ConstraintKinds #-}
+{-# language MultiParamTypeClasses#-}
+{-# language TemplateHaskell#-}
+{-# language ScopedTypeVariables#-}
+{-# language ViewPatterns#-}
+{-# language FlexibleInstances#-}
+{-# language DeriveFunctor#-}
+{-# language StandaloneDeriving#-}
+{-# language GADTs#-}
+{-# language NoMonomorphismRestriction#-}
+{-# language FlexibleContexts#-}
+{-# language ConstraintKinds #-}
 
 import Data.List
 import Data.Tree hiding (Forest)
@@ -14,7 +21,7 @@ import Test.QuickCheck (sample')
 import Data.Types.Isomorphic (to, Injective, Iso)
 import Data.Proxy
 
-import HDynTs.Lib.Tree (arbitraryForest)
+import HDynTs.Lib.Tree (arbitraryForest, drawTreeU)
 import HDynTs.Interface
 
 import HDynTs.EulerTours.Forest
@@ -58,7 +65,7 @@ sep =  "    ....."
 out :: forall t. Env t => String -> StateT (t Int) (InputT IO) ()
 out x = do
     let g t = do
-            putStrLn . drawTree' . fmap show $ t
+            putStrLn . drawTreeU . fmap show $ t
     get >>= liftIO . mapM_ g . (to :: t Int -> [Tree Int]) 
     lift . outputStrLn $ x
 
@@ -78,7 +85,7 @@ loop = callCC $ \stop -> do
                 [(P x y,_)] -> lift $ q (Path x y) $ 
                     lift . outputStrLn . report . show
                 [(I x,_)] -> lift $ q (Spanning x) $
-                     liftIO . putStrLn . drawTree' . fmap show
+                     liftIO . putStrLn . drawTreeU . fmap show
                 [(S,_)] -> lift $ out ""
                 [(N n,_)] -> lift (news n >>= put) >> lift (out "")
                 _ -> help
@@ -95,17 +102,4 @@ run _ = (news :: Int -> IO (t Int)) 5 >>=
 main = run (Proxy :: Proxy (TourForest Int))
 
 
--- | Neat 2-dimensional drawing of a tree.
-drawTree' :: Tree String -> String
-drawTree'  = unlines . draw
 
-draw :: Tree String -> [String]
-draw (Node x ts0) = x : drawSubTrees ts0
-  where
-    drawSubTrees [] = []
-    drawSubTrees [t] =
-        shift "\x2514\x2500" "  " (draw t)
-    drawSubTrees (t:ts) =
-        shift "\x251c\x2500" "\x2502 " (draw t) ++ drawSubTrees ts
-
-    shift first other = zipWith (++) (first : repeat other)
