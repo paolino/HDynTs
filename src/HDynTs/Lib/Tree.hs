@@ -1,4 +1,6 @@
-{-# language ViewPatterns, DeriveFunctor, NoMonomorphismRestriction #-}
+{-# language ViewPatterns#-}
+{-# language DeriveFunctor#-}
+{-# language NoMonomorphismRestriction #-}
 
 {-|
 Module      : HDynTs.Lib.Tree

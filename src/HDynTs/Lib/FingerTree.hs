@@ -1,8 +1,3 @@
--- | Extension to the Data.FingerTree
-module HDynTs.Lib.FingerTree where
-
-import Data.FingerTree
-import Data.Monoid ((<>))
 
 {-|
 Module      : HDynTs.Lib.FingerTree
@@ -12,6 +7,11 @@ License     : BSD
 Maintainer  : paolo.veronelli@gmail.com
 Stability   : experimental
 -}
+module HDynTs.Lib.FingerTree where
+
+import Data.FingerTree
+import Data.Monoid ((<>))
+
 
 -- | extract an elem from a fingertree, giving out the element and the 
 -- orphaned fingertree. It fails when the element is missing

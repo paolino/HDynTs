@@ -98,8 +98,9 @@ class Interpreter t a where
 
 {- | 
 Pure modifications. Let you use the 'modify' function outside the 'MonadState' 
-prop> to (pureModify (Link 1 2) (to [Node 1 [], Node [2]])) 
-    =&= [Node 2 [Node [1]]]
+
+>>> to (pureModify (Link 1 2) (to [Node 1 [], Node [2]])) == [Node 2 [Node [1]]]
+
 -}
 pureModify  :: Interpreter t a 
             => Lang a (Modify c) () -- ^ modification
