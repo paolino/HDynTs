@@ -40,13 +40,14 @@ module HDynTs.Interface (
     Exception (..),
     Interpreter (..),
     -- * Helpers
-    pureModify
+    pureModify,
+    catchM
     )
     
 
 where
 
-import Control.Monad.State (Monad, MonadState, runState, State, evalState )
+import Control.Monad.State (Monad, MonadState, runState, State, evalState , put)
 import Data.Tree (Tree)
 
 
@@ -110,5 +111,8 @@ pureModify f t = let
     (v,t') = runState (modify f) t
     in const t <$> v
 
+catchM :: MonadState s f => Either a s -> f (Either a ())
+catchM (Right g) =  Right <$> put g
+catchM (Left e) = Left <$> return e
 
 

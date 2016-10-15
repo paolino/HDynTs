@@ -46,7 +46,7 @@ import HDynTs.Lib.FingerTree (select)
 import HDynTs.EulerTours.Core (Tour, father, splice,extract ,
         reroot, fromTree,toTree, path)
 import HDynTs.Interface (Interpreter (modify,query),Modification (..), 
-    Queries (..), Exception (..), Modify , Query, Lang (..) ) 
+    Queries (..), Exception (..), Modify , Query, Lang (..) , catchM) 
 
 
 -- | A forest of Tours
@@ -94,9 +94,6 @@ spanning x (TourForest f) = case select (member x) $ f of
     Nothing -> Left $ VertexNotFound x
     Just (e,_) -> Right $ toTree . reroot x $ e
 
-catchM :: MonadState s f => Either a s -> f (Either a ())
-catchM (Right g) =  Right <$> put g
-catchM (Left e) = Left <$> return e
 
 
 instance Ord a => Injective (TourForest a) [Tree a] where
