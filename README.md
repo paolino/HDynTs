@@ -7,7 +7,7 @@ The library comes with a toy console application *hdynts* to explore the tree fo
 
 A recent haskell installation is necessary.
 
-Compilation is achieved via cabal.
+For compilation you need a recent Haskell installation with working achieved cabal.
 
 ~~~~
 cabal install
@@ -15,7 +15,7 @@ cabal test
 cabal haddock --hyperlink-source
 ~~~~
 
-Then you should find the *hdynts* executable in ```~/.cabal/bin/hdynts```d
+Then you should find the *hdynts* executable in ```~/.cabal/bin/hdynts``` and documentation in ~~~~ dist/doc/html ~~~~
 
 
 
